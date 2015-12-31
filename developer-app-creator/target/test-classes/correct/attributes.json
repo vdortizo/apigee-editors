@@ -1,0 +1,12 @@
+{
+  "attributes": [
+    {
+      "name": "DisplayName",
+      "value": "name"
+    },
+    {
+      "name": "attribute1",
+      "value": "attribute1"
+    }
+  ]
+}
