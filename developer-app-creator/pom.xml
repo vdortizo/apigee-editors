@@ -45,7 +45,7 @@
 				<artifactId>exec-maven-plugin</artifactId>
 				<version>${exec.version}</version>
 				<configuration>
-					<mainClass>com.digitaslbi.apigee.view.DeveloperAppView</mainClass>
+					<mainClass>com.digitaslbi.apigee.DeveloperAppEditor</mainClass>
 				</configuration>
 			</plugin>
 		</plugins>
