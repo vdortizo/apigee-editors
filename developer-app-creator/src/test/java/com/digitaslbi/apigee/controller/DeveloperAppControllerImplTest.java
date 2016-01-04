@@ -10,16 +10,20 @@ import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.nio.file.StandardCopyOption;
+import java.util.HashMap;
+import java.util.Map;
 
 import org.junit.After;
 import org.junit.Before;
 import org.junit.Test;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
+import com.digitaslbi.apigee.tools.DeveloperAppValueChange;
 import com.digitaslbi.apigee.view.DeveloperAppView;
 
 public class DeveloperAppControllerImplTest {
     private static final String TEST_STRING = "QWERTY";
+    private static final String EDIT_STRING = "AZERTY";
     
     private Path appDirectory;
     private DeveloperAppController controller;
@@ -37,7 +41,8 @@ public class DeveloperAppControllerImplTest {
         when( view.showMessage( any( String.class ), any( Boolean.class ), any( Boolean.class ) ) ).thenReturn( true );
         when( view.requestNewInput( any( String.class ) ) ).thenReturn( TEST_STRING );
         
-        controller = new DeveloperAppControllerImpl( view );
+        controller = new DeveloperAppControllerImpl();
+        controller.setView( view );
         controller.importDeveloperApp( appDirectory );
     }
     
@@ -184,5 +189,40 @@ public class DeveloperAppControllerImplTest {
         event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_DELAT, TEST_STRING ) );
         controller.actionPerformed( event );
         assertTrue( !controller.getModel().getAttributes().containsKey( TEST_STRING ) );
+    }
+    
+    @Test public void actionPerformedEditProductTest() {
+        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
+        controller.actionPerformed( event );
+        
+        int index = controller.getModel().getProducts().indexOf( TEST_STRING );
+        DeveloperAppValueChange change = new DeveloperAppValueChange();
+        change.setOldValue( TEST_STRING );
+        change.setNewValue( EDIT_STRING );
+        event = new ActionEvent( change, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIPR, index ) );
+        controller.actionPerformed( event );
+        assertTrue( !controller.getModel().getProducts().contains( TEST_STRING ) );
+        assertTrue( controller.getModel().getProducts().contains( EDIT_STRING ) );
+    }
+    
+    @Test public void actionPerformedEditAttributeTest() {
+        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ) );
+        controller.actionPerformed( event );
+        
+        Map<String,DeveloperAppValueChange> change = new HashMap<>();
+        DeveloperAppValueChange realChange = new DeveloperAppValueChange();
+        realChange.setOldValue( TEST_STRING );
+        realChange.setNewValue( EDIT_STRING );
+        change.put( DeveloperAppController.KEY, realChange );
+        realChange = new DeveloperAppValueChange();
+        realChange.setOldValue( TEST_STRING );
+        realChange.setNewValue( EDIT_STRING );
+        change.put( DeveloperAppController.VALUE, realChange );
+        
+        event = new ActionEvent( change, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIAT, TEST_STRING ) );
+        controller.actionPerformed( event );
+        assertTrue( !controller.getModel().getAttributes().containsKey( TEST_STRING ) );
+        assertTrue( controller.getModel().getAttributes().containsKey( EDIT_STRING ) );
+        assertEquals( EDIT_STRING, controller.getModel().getAttributes().get( EDIT_STRING ) );
     }
 }

@@ -8,7 +8,7 @@ import com.digitaslbi.apigee.model.DeveloperApp;
 import com.digitaslbi.apigee.view.DeveloperAppView;
 
 /**
- * This controller interface defines specific mwethods to import/export/work with
+ * This controller interface defines specific methods to import/export/work with
  * Apigee developer apps.
  * 
  * @author Victor Ortiz
@@ -26,10 +26,8 @@ public interface DeveloperAppController extends ActionListener {
     public static final String CMD_EDIAT = "EDIAT";
     public static final String CMD_EDIPR = "EDIPR";
     
-    public static final String ATTRIBUTE = "attribute";
-    public static final String INDEX = "index";
-    public static final String PRODUCT = "product";
-    public static final String TYPE = "type";
+    public static final String KEY = "key";
+    public static final String VALUE = "value";
 	
     /**
      * Sets the view of this controller

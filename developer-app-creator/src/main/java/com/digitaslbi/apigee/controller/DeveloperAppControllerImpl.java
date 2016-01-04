@@ -11,7 +11,6 @@ import java.nio.file.LinkOption;
 import java.nio.file.Path;
 import java.util.ArrayList;
 import java.util.Collections;
-import java.util.Comparator;
 import java.util.List;
 import java.util.Map;
 import java.util.Properties;
@@ -22,6 +21,8 @@ import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
+import com.digitaslbi.apigee.tools.DeveloperAppComparator;
+import com.digitaslbi.apigee.tools.DeveloperAppValueChange;
 import com.digitaslbi.apigee.view.DeveloperAppView;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -31,6 +32,11 @@ import lombok.Getter;
 import lombok.Setter;
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Default implementation of DeveloperAppCOntroller.
+ * 
+ * @author Victor Ortiz
+ */
 @Slf4j
 public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String NAME = "name.props";
@@ -50,6 +56,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String MSG_ADD_PRODUCT = "Please input the new product name";
 	private static final String MSG_APP_ERROR = "The developer app name cannot be empty";
 	private static final String MSG_ATTRIB_ERROR = "The attribute name cannot be empty";
+	private static final String MSG_ATTRIB_VALUE_ERROR = "The attribute [%s] cannot be empty";
     private static final String MSG_ATTRIB_EXISTS_ERROR = "The attribute [%s] already exists in the developer app";
 	private static final String MSG_DATA_ERROR = "An error has ocurred";
 	private static final String MSG_EXISTS_WARN = "The file [%s] already exists in the directory [%s] and will be overwritten";
@@ -70,23 +77,27 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
     private static final String MSG_SURE_SAVE = "Do you want to save your changes?";
     private static final String MSG_VALUE_SEP_ERROR = "The property [%s] must contain one or more values, separated by [%s]";
     
-    @Setter private DeveloperAppView view;
 	private Path path;
 	private boolean modified;
 	
 	@Getter private DeveloperApp model;
+	@Setter private DeveloperAppView view;
 	
 	@Override public void actionPerformed( ActionEvent e ) {
         String command = e.getActionCommand();
         String index = null;
         
         if ( !StringUtils.isEmpty( command ) && ( command.contains( CMD_DELAT ) || command.contains( CMD_DELPR ) || command.contains( CMD_EDIAT ) || command.contains( CMD_EDIPR ) ) ) {
-            index = command.replace( CMD_DELAT, StringUtils.EMPTY ).replace( CMD_DELPR, StringUtils.EMPTY );
+            index = command.replace( CMD_DELAT, StringUtils.EMPTY ).replace( CMD_DELPR, StringUtils.EMPTY ).replace( CMD_EDIAT, StringUtils.EMPTY ).replace( CMD_EDIPR, StringUtils.EMPTY );
             
             if ( command.contains( CMD_DELAT ) )
                 command = CMD_DELAT;
             else if ( command.contains( CMD_DELPR ) )
                 command = CMD_DELPR;
+            else if ( command.contains( CMD_EDIAT ) )
+                command = CMD_EDIAT;
+            else if ( command.contains( CMD_EDIPR ) )
+                command = CMD_EDIPR;
         }
         
         switch ( command ) {
@@ -281,6 +292,12 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 					linkedTreeMap.put( PROPERTY_NAME, key );
 					linkedTreeMap.put( PROPERTY_VALUE, attributes.get( key ) );
 					
+					if ( StringUtils.isEmpty( linkedTreeMap.get( PROPERTY_VALUE ) ) ) {
+					    String error = String.format( MSG_ATTRIB_VALUE_ERROR, linkedTreeMap.get( PROPERTY_NAME ) );
+			            log.error( error );
+			            throw new RuntimeException( error );
+					}
+					
 					attributesList.add( linkedTreeMap );
 				}
 				
@@ -468,24 +485,63 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void editProduct( Object source, String index ) {}
-	
-	private void editAttribute( Object source, String index ) {}
-	
-	public static class DeveloperAppValueChange {
-	    @Getter @Setter private String oldValue;
-	    @Getter @Setter private String newValue;
+	private void editProduct( Object source, String index ) {
+	    if ( null != model ) {
+            List<String> products = model.getProducts();
+            
+            try {
+                DeveloperAppValueChange change = ( DeveloperAppValueChange ) source;
+                
+                if ( !StringUtils.isEmpty( change.getNewValue() ) ) {
+                    if ( !products.contains( change.getNewValue() ) ) {
+                        products.remove( Integer.parseInt( index ) );
+                        products.add( Integer.parseInt( index ), change.getNewValue() );
+                        modified = true;
+                    } else
+                        view.showMessage( String.format( MSG_PROD_EXISTS_ERROR, change.getNewValue() ), true, false );
+                } else
+                    view.showMessage( String.format( MSG_PROD_ERROR, change.getNewValue() ), true, false );
+            } catch ( Exception e ) {
+                log.error( e.getLocalizedMessage(), e );
+                view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+            }
+        }
 	}
 	
-	public static class DeveloperAppComparator implements Comparator<String> {
-        @Override public int compare( String key1, String key2 ) {
-            if ( PRIMARY_PROPERTY.equals( key1 ) )
-                key1 = StringUtils.EMPTY;
+	@SuppressWarnings( "unchecked" )
+    private void editAttribute( Object source, String index ) {
+	    if ( null != model ) {
+            Map<String, String> attributes = model.getAttributes();
             
-            if ( PRIMARY_PROPERTY.equals( key2 ) )
-                key2 = StringUtils.EMPTY;
-            
-            return null != key1 ? key1.compareToIgnoreCase( key2 ) : 1;
+            try {
+                Map<String, DeveloperAppValueChange> changes = ( Map<String, DeveloperAppValueChange> ) source;
+                
+                DeveloperAppValueChange key = changes.get( KEY );
+                DeveloperAppValueChange value = changes.get( VALUE );
+                
+                if ( null != value ) {
+                    if ( !StringUtils.isEmpty( value.getNewValue() ) ) {
+                        attributes.replace( index, value.getNewValue() );
+                        modified = true;
+                    } else
+                        view.showMessage( String.format( MSG_ATTRIB_VALUE_ERROR, index ), true, false );
+                }
+                
+                if ( null != key ) {
+                    if ( !StringUtils.isEmpty( key.getNewValue() ) ) {
+                        if ( !attributes.containsKey( key.getNewValue() ) ) {
+                            String keyValue = attributes.remove( index );
+                            attributes.put( key.getNewValue() , keyValue );
+                            modified = true;
+                        } else
+                            view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, key.getNewValue() ), true, false );
+                    } else
+                        view.showMessage( MSG_ATTRIB_ERROR, true, false );
+                }
+            } catch ( Exception e ) {
+                log.error( e.getLocalizedMessage(), e );
+                view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+            }
         }
-    }
+	}
 }
