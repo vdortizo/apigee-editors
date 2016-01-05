@@ -121,93 +121,77 @@ public class DeveloperAppControllerImplTest {
         assertEquals( DeveloperAppController.CMD_DELAT, controller.getCommandForIndex( DeveloperAppController.CMD_DELAT, null ) );
     }
     
-    @Test public void actionPerformedAddProductTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedAddProductTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ), null );
         assertTrue( controller.getModel().getProducts().contains( TEST_STRING ) );
     }
     
-    @Test public void actionPerformedSaveTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
-        controller.actionPerformed( event );
-        event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_SAVE, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedSaveTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ), null );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_SAVE, null ), null );
         assertTrue( appDirectory.resolve( "name.props" ).toFile().exists() );
         assertTrue( appDirectory.resolve( "attributes.json" ).toFile().exists() );
     }
     
-    @Test public void actionPerformedSaveAsTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
-        controller.actionPerformed( event );
-        event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_SAVEAS, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedSaveAsTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ), null );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_SAVEAS, null ), null );
         assertTrue( appDirectory.resolve( "output/name.props" ).toFile().exists() );
         assertTrue( appDirectory.resolve( "output/attributes.json" ).toFile().exists() );
     }
     
-    @Test public void actionPerformedAddAttributeTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedAddAttributeTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ), null );
         assertTrue( controller.getModel().getAttributes().containsKey( TEST_STRING ) );
     }
     
-    @Test public void actionPerformedReloadTest() {
+    @Test public void commandExecutedReloadTest() {
         DeveloperApp model = controller.getModel();
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_RELOAD, null ) );
-        controller.actionPerformed( event );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_RELOAD, null ), null );
         assertEquals( model, controller.getModel() );
     }
     
-    @Test public void actionPerformedOpenTest() {
+    @Test public void commandExecutedOpenTest() {
         DeveloperApp model = controller.getModel();
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_OPEN, null ) );
-        controller.actionPerformed( event );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_OPEN, null ), null );
         assertEquals( model, controller.getModel() );
     }
     
-    @Test public void actionPerformedNewTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_NEW, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedNewTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_NEW, null ), null );
         assertEquals( TEST_STRING, controller.getModel().getName() );
         assertTrue( !controller.getModel().getProducts().isEmpty() );
         assertTrue( !controller.getModel().getAttributes().isEmpty() );
     }
     
-    @Test public void actionPerformedDeleteProductTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedDeleteProductTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ), null );
         
         int index = controller.getModel().getProducts().indexOf( TEST_STRING );
-        event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_DELPR, index ) );
-        controller.actionPerformed( event );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_DELPR, index ), null );
         assertTrue( !controller.getModel().getProducts().contains( TEST_STRING ) );
     }
     
-    @Test public void actionPerformedDeleteAttributeTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ) );
-        controller.actionPerformed( event );
-        event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_DELAT, TEST_STRING ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedDeleteAttributeTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ), null );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_DELAT, TEST_STRING ), null );
         assertTrue( !controller.getModel().getAttributes().containsKey( TEST_STRING ) );
     }
     
-    @Test public void actionPerformedEditProductTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedEditProductTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ), null );
         
         int index = controller.getModel().getProducts().indexOf( TEST_STRING );
         DeveloperAppValueChange change = new DeveloperAppValueChange();
         change.setOldValue( TEST_STRING );
         change.setNewValue( EDIT_STRING );
-        event = new ActionEvent( change, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIPR, index ) );
-        controller.actionPerformed( event );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_EDIPR, index ), change );
         assertTrue( !controller.getModel().getProducts().contains( TEST_STRING ) );
         assertTrue( controller.getModel().getProducts().contains( EDIT_STRING ) );
     }
     
-    @Test public void actionPerformedEditAttributeTest() {
-        ActionEvent event = new ActionEvent( new Object(), ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ) );
-        controller.actionPerformed( event );
+    @Test public void commandExecutedEditAttributeTest() {
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ), null );
         
         Map<String,DeveloperAppValueChange> change = new HashMap<>();
         DeveloperAppValueChange realChange = new DeveloperAppValueChange();
@@ -219,8 +203,7 @@ public class DeveloperAppControllerImplTest {
         realChange.setNewValue( EDIT_STRING );
         change.put( DeveloperAppController.VALUE, realChange );
         
-        event = new ActionEvent( change, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIAT, TEST_STRING ) );
-        controller.actionPerformed( event );
+        controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_EDIAT, TEST_STRING ), change );
         assertTrue( !controller.getModel().getAttributes().containsKey( TEST_STRING ) );
         assertTrue( controller.getModel().getAttributes().containsKey( EDIT_STRING ) );
         assertEquals( EDIT_STRING, controller.getModel().getAttributes().get( EDIT_STRING ) );

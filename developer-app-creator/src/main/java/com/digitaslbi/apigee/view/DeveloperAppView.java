@@ -1,5 +1,6 @@
 package com.digitaslbi.apigee.view;
 
+import java.awt.event.ActionListener;
 import java.nio.file.Path;
 
 import javax.swing.event.UndoableEditListener;
@@ -10,7 +11,7 @@ import javax.swing.event.UndoableEditListener;
  * 
  * @author VIctor Ortiz
  */
-public interface DeveloperAppView extends Runnable, UndoableEditListener {
+public interface DeveloperAppView extends Runnable, UndoableEditListener, ActionListener {
     /**
      * Initializes all graphical attributes
      * @param firstTime indicates if this is the first execution of this method

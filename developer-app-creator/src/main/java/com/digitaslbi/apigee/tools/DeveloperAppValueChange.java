@@ -1,14 +1,14 @@
 package com.digitaslbi.apigee.tools;
 
-import lombok.Getter;
-import lombok.Setter;
+import lombok.Data;
 
 /**
  * A standard key value pair class.
  * 
  * @author Victor Ortiz
  */
+@Data
 public class DeveloperAppValueChange {
-    @Getter @Setter private String oldValue;
-    @Getter @Setter private String newValue;
+    private String oldValue;
+    private String newValue;
 }

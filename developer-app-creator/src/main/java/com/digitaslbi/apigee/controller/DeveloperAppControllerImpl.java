@@ -1,6 +1,5 @@
 package com.digitaslbi.apigee.controller;
 
-import java.awt.event.ActionEvent;
 import java.io.FileInputStream;
 import java.io.FileOutputStream;
 import java.io.FileReader;
@@ -74,6 +73,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String MSG_PROD_ERROR = "The product cannot be empty or only blank spaces";
     private static final String MSG_PROD_EXISTS_ERROR = "The product [%s] already exists in the developer app";
     private static final String MSG_PROD_WARN = "The product at index [%s] is empty and will be ignored";
+    private static final String MSG_PROD_ZERO = "A developer app cannot contain no products";
     private static final String MSG_SURE_SAVE = "Do you want to save your changes?";
     private static final String MSG_VALUE_SEP_ERROR = "The property [%s] must contain one or more values, separated by [%s]";
     
@@ -83,8 +83,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	@Getter private DeveloperApp model;
 	@Setter private DeveloperAppView view;
 	
-	@Override public void actionPerformed( ActionEvent e ) {
-        String command = e.getActionCommand();
+	@Override public void commandExecuted( String command, Object source ) {
         String index = null;
         
         if ( !StringUtils.isEmpty( command ) && ( command.contains( CMD_DELAT ) || command.contains( CMD_DELPR ) || command.contains( CMD_EDIAT ) || command.contains( CMD_EDIPR ) ) ) {
@@ -120,14 +119,12 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             case CMD_DELPR:
                 deleteProduct( index ); break;
             case CMD_EDIAT:
-                editAttribute( e.getSource(), index ); break;
+                editAttribute( source, index ); break;
             case CMD_EDIPR:
-                editProduct( e.getSource(), index ); break;
+                editProduct( source, index ); break;
             default:
-                log.warn( String.format( MSG_NO_KNOWN_ACTION, e.getActionCommand() ) ); break;
+                log.warn( String.format( MSG_NO_KNOWN_ACTION, command ) ); break;
         }
-        
-        view.initialize( false );
     }
 	
 	@SuppressWarnings( "unchecked" )
@@ -347,6 +344,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             if ( 0 == products.size() ) {
                 model = oldModel;
                 view.showMessage( MSG_NO_PROD_ERROR, true, false );
+                view.initialize( false );
             } else {
                 Map<String, String> attributes = new TreeMap<>( new DeveloperAppComparator() );
                 attributes.put( PRIMARY_PROPERTY, name );
@@ -355,8 +353,10 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
                 path = null;
                 modified = true;
             }
-        } else
+        } else {
             view.showMessage( MSG_APP_ERROR, true, false );
+            view.initialize( false );
+        }
 	}
 	
 	private void open() {
@@ -370,6 +370,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         } catch ( Exception ex ) {
             log.error( ex.getLocalizedMessage(), ex );
             view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + ex.getLocalizedMessage(), true, false );
+            view.initialize( false );
         }
 	}
 	
@@ -383,11 +384,14 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             
             if ( null != loadPath )
                 importDeveloperApp( loadPath );
-            else
+            else {
                 view.showMessage( MSG_NO_APP_LOADED, false, false );
+                view.initialize( false );
+            }
         } catch ( Exception ex ) {
             log.error( ex.getLocalizedMessage(), ex );
             view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + ex.getLocalizedMessage(), true, false );
+            view.initialize( false );
         }
 	}
 	
@@ -412,6 +416,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         } catch ( Exception ex ) {
             log.error( ex.getLocalizedMessage(), ex );
             view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + ex.getLocalizedMessage(), true, false );
+            view.initialize( false );
         }
 	}
 	
@@ -429,10 +434,14 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
                 if ( !attributes.containsKey( attribute ) ) {
                     attributes.put( attribute, ATTRIBUTE_PLACEHOLDER );
                     modified = true;
-                } else
+                } else {
                     view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, attribute ), true, false );
-            } else
+                    view.initialize( false );
+                }
+            } else {
                 view.showMessage( MSG_ATTRIB_ERROR, true, false );
+                view.initialize( false );
+            }
         }
 	}
 	
@@ -450,10 +459,14 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	            if ( !products.contains( product ) ) {
 	                products.add( product );
 	                modified = true;
-	            } else
+	            } else {
 	                view.showMessage( String.format( MSG_PROD_EXISTS_ERROR, product ), true, false );
-	        } else
+	                view.initialize( false );
+	            }
+	        } else {
 	            view.showMessage( MSG_PROD_ERROR, true, false );
+	            view.initialize( false );
+	        }
 	    }
 	}
 	
@@ -462,11 +475,17 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	        List<String> products = model.getProducts();
 	        
 	        try {
-	            products.remove( Integer.parseInt( index ) );
-	            modified = true;
+	            if ( 1 == products.size() && null != products.get( Integer.parseInt( index ) ) ) {
+	                view.showMessage( MSG_PROD_ZERO, true, false );
+	                view.initialize( false );
+	            } else {
+	                products.remove( Integer.parseInt( index ) );
+	                modified = true;
+	            }
             } catch ( Exception e ) {
                 log.error( e.getLocalizedMessage(), e );
                 view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+                view.initialize( false );
             }
 	    }
 	}
@@ -481,6 +500,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             } catch ( Exception e ) {
                 log.error( e.getLocalizedMessage(), e );
                 view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+                view.initialize( false );
             }
         }
 	}
@@ -497,13 +517,18 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
                         products.remove( Integer.parseInt( index ) );
                         products.add( Integer.parseInt( index ), change.getNewValue() );
                         modified = true;
-                    } else
+                    } else {
                         view.showMessage( String.format( MSG_PROD_EXISTS_ERROR, change.getNewValue() ), true, false );
-                } else
+                        view.initialize( false );
+                    }
+                } else {
                     view.showMessage( String.format( MSG_PROD_ERROR, change.getNewValue() ), true, false );
+                    view.initialize( false );
+                }
             } catch ( Exception e ) {
                 log.error( e.getLocalizedMessage(), e );
                 view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+                view.initialize( false );
             }
         }
 	}
@@ -521,10 +546,17 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
                 
                 if ( null != value ) {
                     if ( !StringUtils.isEmpty( value.getNewValue() ) ) {
-                        attributes.replace( index, value.getNewValue() );
-                        modified = true;
-                    } else
+                        if ( attributes.containsKey( index ) ) {
+                            attributes.replace( index, value.getNewValue() );
+                            modified = true;
+                        } else {
+                            attributes.put( index, value.getNewValue() );
+                            modified = true;
+                        }
+                    } else {
                         view.showMessage( String.format( MSG_ATTRIB_VALUE_ERROR, index ), true, false );
+                        view.initialize( false );
+                    }
                 }
                 
                 if ( null != key ) {
@@ -533,14 +565,19 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
                             String keyValue = attributes.remove( index );
                             attributes.put( key.getNewValue() , keyValue );
                             modified = true;
-                        } else
+                        } else {
                             view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, key.getNewValue() ), true, false );
-                    } else
+                            view.initialize( false );
+                        }
+                    } else {
                         view.showMessage( MSG_ATTRIB_ERROR, true, false );
+                        view.initialize( false );
+                    }
                 }
             } catch ( Exception e ) {
                 log.error( e.getLocalizedMessage(), e );
                 view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+                view.initialize( false );
             }
         }
 	}

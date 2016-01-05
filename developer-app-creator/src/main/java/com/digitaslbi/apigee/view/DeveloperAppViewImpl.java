@@ -4,13 +4,18 @@ import java.awt.Dimension;
 import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.Window;
+import java.awt.event.ActionEvent;
 import java.awt.event.KeyEvent;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 import java.util.Set;
 
 import javax.swing.GroupLayout;
+import javax.swing.JButton;
+import javax.swing.GroupLayout.Alignment;
 import javax.swing.GroupLayout.Group;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
@@ -27,20 +32,29 @@ import javax.swing.UIManager;
 import javax.swing.border.EtchedBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.UndoableEditEvent;
+import javax.swing.text.Document;
+import javax.swing.undo.UndoableEdit;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.digitaslbi.apigee.controller.DeveloperAppController;
 import com.digitaslbi.apigee.model.DeveloperApp;
+import com.digitaslbi.apigee.tools.DeveloperAppValueChange;
 
 import lombok.extern.slf4j.Slf4j;
 
+/**
+ * Default implementation of DeveloperAppView
+ * 
+ * @author Victor Ortiz
+ */
 @Slf4j
 public class DeveloperAppViewImpl implements DeveloperAppView {
     private static final String APP_ATTRIBUTES = "Attributes";
     private static final String APP_DETAILS = "Details";
     private static final String APP_PRODUCTS = "Products";
+    private static final String DELETE = "Delete";
     private static final String DISPLAY_NAME = "Display name:";
     private static final String DISPLAY_NAME_VALUE = "DisplayName";
     private static final String MNIT_NEW = "New";
@@ -55,6 +69,11 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
     private static final String NAME = "Name:";
     private static final String NOTES = "Notes:";
     private static final String NOTES_VALUE = "Notes";
+    private static final String PROPERTY_NAME = "PROPERTY";
+    private static final String PROPERTY_TYPE = "TYPE";
+    private static final String PROPERTY_TYPE_ATT = "ATTRIB";
+    private static final String PROPERTY_TYPE_PRO = "PRODUC";
+    private static final String PROPERTY_KV = "KEYVALUE";
     
     private static final String LF_APPLE_MENU = "apple.laf.useScreenMenuBar";
     private static final String LF_APPLE_FULLSCREEN = "setWindowCanFullScreen";
@@ -86,6 +105,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
     private JPanel panel;
     
     private DeveloperAppController controller;
+    private boolean loading;
 
     public DeveloperAppViewImpl( DeveloperAppController controller ) {
         this.controller = controller;
@@ -93,11 +113,12 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         
         System.setProperty( LF_APPLE_MENU, Boolean.TRUE.toString() );
         initialize( true );
-        enableFullscreen( frame );
+        enableOSX( frame );
     }
     
     @Override public void initialize( boolean firstTime ) {
         DeveloperApp model = controller.getModel();
+        loading = true;
         
         if ( firstTime ) {
             nameLabel = new JLabel( NAME );
@@ -111,8 +132,16 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             nameContentField.setEditable( false );
             displayNameContentField = new JTextField( 1 );
             displayNameContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
+            displayNameContentField.getDocument().addUndoableEditListener( this );
+            displayNameContentField.getDocument().putProperty( PROPERTY_NAME, DISPLAY_NAME_VALUE );
+            displayNameContentField.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
+            displayNameContentField.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
             notesContentArea = new JTextArea( 3, 1 );
             notesContentArea.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
+            notesContentArea.getDocument().addUndoableEditListener( this );
+            notesContentArea.getDocument().putProperty( PROPERTY_NAME, NOTES_VALUE );
+            notesContentArea.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
+            notesContentArea.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
             notesContentScrollPane = new JScrollPane( notesContentArea );
             notesContentScrollPane.setBorder( null );
             namePanel = new JPanel( true );
@@ -143,32 +172,32 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             panelScrollPane.setBorder( null );
             
             JMenuItem newApp = new JMenuItem( MNIT_NEW, KeyEvent.VK_N );
-            newApp.setActionCommand( DeveloperAppController.CMD_NEW );
-            newApp.addActionListener( controller );
+            newApp.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_NEW, null ) );
+            newApp.addActionListener( this );
             
             JMenuItem open = new JMenuItem( MNIT_OPEN, KeyEvent.VK_O );
-            open.setActionCommand( DeveloperAppController.CMD_OPEN );
-            open.addActionListener( controller );
+            open.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_OPEN, null ) );
+            open.addActionListener( this );
             
             JMenuItem save = new JMenuItem( MNIT_SAVE, KeyEvent.VK_S );
-            save.setActionCommand( DeveloperAppController.CMD_SAVE );
-            save.addActionListener( controller );
+            save.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_SAVE, null ) );
+            save.addActionListener( this );
             
             JMenuItem saveAs = new JMenuItem( MNIT_SAVEAS, KeyEvent.VK_V );
-            saveAs.setActionCommand( DeveloperAppController.CMD_SAVEAS );
-            saveAs.addActionListener( controller );
+            saveAs.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_SAVEAS, null ) );
+            saveAs.addActionListener( this );
             
             JMenuItem reload = new JMenuItem( MNIT_RELOAD, KeyEvent.VK_R );
-            reload.setActionCommand( DeveloperAppController.CMD_RELOAD );
-            reload.addActionListener( controller );
+            reload.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_RELOAD, null ) );
+            reload.addActionListener( this );
             
             JMenuItem addAttrib = new JMenuItem( MNIT_ADDAT, KeyEvent.VK_A );
-            addAttrib.setActionCommand( DeveloperAppController.CMD_ADDAT );
-            addAttrib.addActionListener( controller );
+            addAttrib.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ) );
+            addAttrib.addActionListener( this );
             
             JMenuItem addProduct = new JMenuItem( MNIT_ADDPR, KeyEvent.VK_P );
-            addProduct.setActionCommand( DeveloperAppController.CMD_ADDPR );
-            addProduct.addActionListener( controller );
+            addProduct.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
+            addProduct.addActionListener( this );
             
             JMenu fileMenu = new JMenu( MENU_FILE );
             fileMenu.setMnemonic( KeyEvent.VK_F );
@@ -188,7 +217,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             menubar.add( editMenu );
             
             Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-            Dimension window = new Dimension( 640, 240 );
+            Dimension window = new Dimension( 3 * screen.width / 4, 3 * screen.height / 4 );
             
             frame = new JFrame();
             frame.setBounds( ( screen.width / 2 ) - ( window.width / 2 ), ( screen.height / 2 ) - ( window.height / 2 ), window.width, window.height );
@@ -205,7 +234,6 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             frameLayout.setAutoCreateGaps( true );
             frameLayout.setVerticalGroup( frameLayout.createSequentialGroup().addComponent( panelScrollPane, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ) );
             frameLayout.setHorizontalGroup( frameLayout.createSequentialGroup().addComponent( panelScrollPane, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ) );
-            
         }
         
         nameContentField.setText( null != model ? model.getName() : StringUtils.EMPTY );
@@ -223,7 +251,9 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         productsPanelLayout.setAutoCreateGaps( true );
         
         Group productsPanelLayoutVerticalGroup = productsPanelLayout.createSequentialGroup();
-        Group productsPanelLayoutHorizontalGroup = productsPanelLayout.createParallelGroup();
+        Group productsPanelLayoutHorizontalGroup = productsPanelLayout.createSequentialGroup();
+        Group productsPanelLayoutHorizontalProductGroup = productsPanelLayout.createParallelGroup();
+        Group productsPanelLayoutHorizontalDeleteGroup = productsPanelLayout.createParallelGroup();
         
         if ( null != model ) {
             List<String> products = model.getProducts();
@@ -232,16 +262,23 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
                 JTextField productName = new JTextField( product, 1 );
                 productName.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
                 productName.getDocument().addUndoableEditListener( this );
+                productName.getDocument().putProperty( PROPERTY_NAME, products.indexOf( product ) );
+                productName.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_PRO );
                 
-                //TODO: Add product delete button
+                JButton productDeleteButton = new JButton();
+                productDeleteButton.setText( DELETE );
+                productDeleteButton.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_DELPR, products.indexOf( product ) ) );
+                productDeleteButton.addActionListener( this );
                 
-                productsPanelLayoutVerticalGroup.addComponent( productName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE );
-                productsPanelLayoutHorizontalGroup.addComponent( productName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE );
+                productsPanelLayoutVerticalGroup.addGroup( productsPanelLayout.createParallelGroup().addComponent( productName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( productDeleteButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) );
+                productsPanelLayoutHorizontalProductGroup.addComponent( productName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE );
+                productsPanelLayoutHorizontalDeleteGroup.addComponent( productDeleteButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE );
             }
         }
         
         productsPanelLayout.setVerticalGroup( productsPanelLayoutVerticalGroup );
         productsPanelLayout.setHorizontalGroup( productsPanelLayoutHorizontalGroup );
+        productsPanelLayout.setHorizontalGroup( productsPanelLayoutHorizontalGroup.addGroup( productsPanelLayoutHorizontalProductGroup ).addGroup( productsPanelLayoutHorizontalDeleteGroup ) );
         
         attributesPanel.removeAll();
         attributesPanel.validate();
@@ -255,6 +292,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         Group attributesPanelLayoutHorizontalGroup = attributesPanelLayout.createSequentialGroup();
         Group attributesPanelLayoutHorizontalNameGroup = attributesPanelLayout.createParallelGroup();
         Group attributesPanelLayoutHorizontalContentGroup = attributesPanelLayout.createParallelGroup();
+        Group attributesPanelLayoutHorizontalDeleteGroup = attributesPanelLayout.createParallelGroup();
         
         if ( null != model && null != model.getAttributes() ) {
             Set<String> attributes = model.getAttributes().keySet();
@@ -264,22 +302,33 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
                     JTextField attributeName = new JTextField( attribute, 1 );
                     attributeName.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
                     attributeName.getDocument().addUndoableEditListener( this );
+                    attributeName.getDocument().putProperty( PROPERTY_NAME, attribute );
+                    attributeName.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
+                    attributeName.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.KEY );
                     
                     JTextField attributeContent = new JTextField( model.getAttributes().get( attribute ), 1 );
                     attributeContent.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
                     attributeContent.getDocument().addUndoableEditListener( this );
+                    attributeContent.getDocument().putProperty( PROPERTY_NAME, attribute );
+                    attributeContent.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
+                    attributeContent.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
                     
-                    //TODO: Add attribute delete button
+                    JButton attributeDeleteButton = new JButton();
+                    attributeDeleteButton.setText( DELETE );
+                    attributeDeleteButton.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_DELAT, attribute ) );
+                    attributeDeleteButton.addActionListener( this );
                     
-                    attributesPanelLayoutVerticalGroup.addGroup( attributesPanelLayout.createParallelGroup().addComponent( attributeName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( attributeContent, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) );
+                    attributesPanelLayoutVerticalGroup.addGroup( attributesPanelLayout.createParallelGroup().addComponent( attributeName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( attributeContent, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( attributeDeleteButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) );
                     attributesPanelLayoutHorizontalNameGroup.addComponent( attributeName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE );
                     attributesPanelLayoutHorizontalContentGroup.addComponent( attributeContent, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE );
+                    attributesPanelLayoutHorizontalDeleteGroup.addComponent( attributeDeleteButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE );
                 }
             }
         }
         
         attributesPanelLayout.setVerticalGroup( attributesPanelLayoutVerticalGroup );
-        attributesPanelLayout.setHorizontalGroup( attributesPanelLayoutHorizontalGroup.addGroup( attributesPanelLayoutHorizontalNameGroup ).addGroup( attributesPanelLayoutHorizontalContentGroup ) );
+        attributesPanelLayout.setHorizontalGroup( attributesPanelLayoutHorizontalGroup.addGroup( attributesPanelLayoutHorizontalNameGroup ).addGroup( attributesPanelLayoutHorizontalContentGroup ).addGroup( attributesPanelLayoutHorizontalDeleteGroup ) );
+        loading = false;
     }
     
     @Override public Path getFileOrDirectory( boolean directoyOnly ) {
@@ -336,11 +385,55 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
     }
     
     @Override public void undoableEditHappened( UndoableEditEvent e ) {
-        //TODO: Get the changed property (old and new value)
-        //TODO: Update the model accordingly
+        if ( !loading ) {
+            try {
+                Document document = ( Document ) e.getSource();
+                String type = document.getProperty( PROPERTY_TYPE ).toString();
+                String property = document.getProperty( PROPERTY_NAME ).toString();
+                
+                if ( PROPERTY_TYPE_ATT.equals( type ) ) {
+                    String kv = document.getProperty( PROPERTY_KV ).toString();
+                    Map<String, DeveloperAppValueChange> changes = new HashMap<>();
+                    
+                    DeveloperAppValueChange change = new DeveloperAppValueChange();
+                    UndoableEdit edit = e.getEdit();
+                    edit.undo();
+                    change.setOldValue( document.getText( 0, document.getLength() ) );
+                    edit.redo();
+                    change.setNewValue( document.getText( 0, document.getLength() ) );
+                    
+                    if ( !StringUtils.isEmpty( kv ) )
+                        changes.put( kv, change );
+                    
+                    ActionEvent action = new ActionEvent( changes, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIAT, property ) );
+                    actionPerformed( action );
+                } else if ( PROPERTY_TYPE_PRO.equals( type ) ) {
+                    DeveloperAppValueChange change = new DeveloperAppValueChange();
+                    UndoableEdit edit = e.getEdit();
+                    edit.undo();
+                    change.setOldValue( document.getText( 0, document.getLength() ) );
+                    edit.redo();
+                    change.setNewValue( document.getText( 0, document.getLength() ) );
+                    
+                    ActionEvent action = new ActionEvent( change, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIPR, property ) );
+                    actionPerformed( action );
+                }
+            } catch ( Exception ex ) {
+                log.error( MSG_GRAPHICAL_ERROR, e );
+            }
+        }
     }
     
-    private void enableFullscreen( JFrame frame ) {
+    @Override public void actionPerformed( ActionEvent e ) {
+        if ( !loading ) {
+            controller.commandExecuted( e.getActionCommand(), e.getSource() );
+            
+            if ( !e.getActionCommand().contains( DeveloperAppController.CMD_EDIPR ) && !e.getActionCommand().contains( DeveloperAppController.CMD_EDIAT ) )
+                initialize( false );
+        }
+    }
+    
+    private void enableOSX( JFrame frame ) {
         try {
             Class<?> utility = Class.forName( LF_APPLE_UTIL );
             Class<?> params[] = new Class[]{ Window.class, Boolean.TYPE };

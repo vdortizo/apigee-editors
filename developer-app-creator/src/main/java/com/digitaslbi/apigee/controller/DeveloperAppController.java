@@ -1,6 +1,5 @@
 package com.digitaslbi.apigee.controller;
 
-import java.awt.event.ActionListener;
 import java.io.IOException;
 import java.nio.file.Path;
 
@@ -13,7 +12,7 @@ import com.digitaslbi.apigee.view.DeveloperAppView;
  * 
  * @author Victor Ortiz
  */
-public interface DeveloperAppController extends ActionListener {
+public interface DeveloperAppController {
 	public static final String CMD_NEW = "NEW";
 	public static final String CMD_OPEN = "OPEN";
     public static final String CMD_SAVE = "SAVE";
@@ -62,4 +61,11 @@ public interface DeveloperAppController extends ActionListener {
 	 * @return the name of the command and the element as established in the implementation
 	 */
 	public String getCommandForIndex( String command, Object index );
+	
+	/**
+	 * Executes a command
+	 * @param command the command name
+	 * @param source the source object/parameters
+	 */
+	public void commandExecuted( String command, Object source );
 }
