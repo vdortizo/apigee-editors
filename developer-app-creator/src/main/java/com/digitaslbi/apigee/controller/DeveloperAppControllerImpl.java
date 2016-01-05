@@ -107,9 +107,9 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             case CMD_RELOAD:
                 reload(); break;
             case CMD_SAVE:
-                save( false ); break;
+                save(); break;
             case CMD_SAVEAS:
-                save( true ); break;
+                saveAs(); break;
             case CMD_ADDAT:
                 addAttribute(); break;
             case CMD_ADDPR:
@@ -326,7 +326,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	}
 	
 	private void newApp() {
-	    save( false );
+	    save();
 
 	    DeveloperApp oldModel = model;
 	    String name = view.requestNewInput( MSG_ADD_APP );
@@ -360,7 +360,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	}
 	
 	private void open() {
-	    save( false );
+	    save();
         
         try {
             Path loadPath = null != view ? view.getFileOrDirectory( true ) : null ;
@@ -395,7 +395,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void save( boolean saveAs ) {
+	private void save() {
 	    if ( null != model && modified ) {
             if ( !view.showMessage( MSG_SURE_SAVE, false, true ) )
                 return;
@@ -403,10 +403,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             return;
         
         try {
-            Path loadPath = null;
-            
-            if ( !saveAs )
-                loadPath = path;
+            Path loadPath = path;
             
             if ( null == loadPath )
                 loadPath = view.saveFileOrDirectory( true );
@@ -419,6 +416,28 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             view.initialize( false );
         }
 	}
+	
+	private void saveAs() {
+        if ( null != model ) {
+            if ( !view.showMessage( MSG_SURE_SAVE, false, true ) )
+                return;
+        } else
+            return;
+        
+        try {
+            Path loadPath = path;
+            
+            if ( null == loadPath )
+                loadPath = view.saveFileOrDirectory( true );
+                
+            if ( null != loadPath )
+                exportDeveloperApp( loadPath );
+        } catch ( Exception ex ) {
+            log.error( ex.getLocalizedMessage(), ex );
+            view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + ex.getLocalizedMessage(), true, false );
+            view.initialize( false );
+        }
+    }
 	
 	private void addAttribute() {
 	    if ( null != model ) {
