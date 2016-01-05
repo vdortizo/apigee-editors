@@ -2,6 +2,8 @@ package com.digitaslbi.apigee;
 
 import java.awt.EventQueue;
 
+import org.springframework.boot.autoconfigure.SpringBootApplication;
+
 import com.digitaslbi.apigee.controller.DeveloperAppControllerImpl;
 import com.digitaslbi.apigee.view.DeveloperAppViewImpl;
 
@@ -10,6 +12,7 @@ import com.digitaslbi.apigee.view.DeveloperAppViewImpl;
  * 
  * @author Victor Ortiz
  */
+@SpringBootApplication
 public class DeveloperAppEditor {
     /**
      * Main entry method
