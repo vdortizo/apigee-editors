@@ -425,10 +425,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
             return;
         
         try {
-            Path loadPath = path;
-            
-            if ( null == loadPath )
-                loadPath = view.saveFileOrDirectory( true );
+            Path loadPath = view.saveFileOrDirectory( true );
                 
             if ( null != loadPath )
                 exportDeveloperApp( loadPath );
