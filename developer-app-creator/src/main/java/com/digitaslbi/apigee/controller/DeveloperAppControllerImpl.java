@@ -21,7 +21,6 @@ import org.apache.commons.lang3.StringUtils;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
 import com.digitaslbi.apigee.tools.DeveloperAppComparator;
-import com.digitaslbi.apigee.tools.DeveloperAppValueChange;
 import com.digitaslbi.apigee.view.DeveloperAppView;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -47,6 +46,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String PROPERTY_VALUE = "value";
 	
 	private static final String ATTRIBUTE_PLACEHOLDER = "Please change this value";
+	private static final String NOTES_PROPERTY = "Notes";
 	private static final String PRIMARY_PROPERTY = "DisplayName";
 	private static final String PRODUCT_SEPARATOR = ",";
 	
@@ -55,8 +55,9 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String MSG_ADD_PRODUCT = "Please input the new product name";
 	private static final String MSG_APP_ERROR = "The developer app name cannot be empty";
 	private static final String MSG_ATTRIB_ERROR = "The attribute name cannot be empty";
-	private static final String MSG_ATTRIB_VALUE_ERROR = "The attribute [%s] cannot be empty";
     private static final String MSG_ATTRIB_EXISTS_ERROR = "The attribute [%s] already exists in the developer app";
+	private static final String MSG_ATTRIB_VALUE_ERROR = "The attribute [%s] cannot be empty";
+	private static final String MSG_ATTRIB_WARN = "An attribute with an empty name has been found and will be ignored";
 	private static final String MSG_DATA_ERROR = "An error has ocurred";
 	private static final String MSG_EXISTS_WARN = "The file [%s] already exists in the directory [%s] and will be overwritten";
 	private static final String MSG_FILE_NOT_EXISTS_ERROR = "The file [%s] does not exist under the directory [%s]";
@@ -83,7 +84,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	@Getter private DeveloperApp model;
 	@Setter private DeveloperAppView view;
 	
-	@Override public void commandExecuted( String command, Object source ) {
+	@Override public synchronized void commandExecuted( String command, Object source ) {
         String index = null;
         
         if ( !StringUtils.isEmpty( command ) && ( command.contains( CMD_DELAT ) || command.contains( CMD_DELPR ) || command.contains( CMD_EDIAT ) || command.contains( CMD_EDIPR ) ) ) {
@@ -128,7 +129,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
     }
 	
 	@SuppressWarnings( "unchecked" )
-	@Override public void importDeveloperApp( Path directory ) throws IOException {
+	@Override public synchronized void importDeveloperApp( Path directory ) throws IOException {
 		if ( null != directory && Files.isDirectory( directory, LinkOption.NOFOLLOW_LINKS ) ) {
 			Path nameProps = directory.resolve( NAME );
 			Path attributesJson = directory.resolve( ATTRIBUTES );
@@ -219,8 +220,12 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	                                    value = linkedTreeMap.get( mapKey );
 	                            }
 	                            
-	                            if ( null != value && null != key )
-	                                attributes.put( key, value );
+	                            if ( null != value && null != key ) {
+	                                if ( StringUtils.isEmpty( key ) )
+	                                    log.warn( MSG_ATTRIB_WARN );
+	                                else
+	                                    attributes.put( key, value );
+	                            }
 	                            
 	                            key = value = null;
 	                        }
@@ -230,20 +235,20 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 					} else {
 					    tempModel.setAttributes( new TreeMap<>( new DeveloperAppComparator() ) );
 					    log.warn( String.format( MSG_NOT_EXIST_PROP_ERROR, ATTRIBUTES, PROPERTY_ATTRIBUTES ) );
-                        }
+                    }
 				} else {
 					log.warn( String.format( MSG_FILE_NOT_EXISTS_ERROR + MSG_NOT_IMPORT_WARN, ATTRIBUTES, directory ) );
 				}
 				
-				path = directory;
-				modified = false;
-				model = tempModel;
-				
-				if ( !model.getAttributes().containsKey( PRIMARY_PROPERTY ) ) {
-				    view.showMessage( MSG_NO_PRIMARY_PROPERTY, false, false );
-				    model.getAttributes().put( PRIMARY_PROPERTY, model.getName() );
+				if ( !tempModel.getAttributes().containsKey( PRIMARY_PROPERTY ) ) {
+				    log.warn( MSG_NO_PRIMARY_PROPERTY, false, false );
+				    tempModel.getAttributes().put( PRIMARY_PROPERTY, tempModel.getName() );
                     modified = true;
                 }
+				
+				path = directory;
+                modified = false;
+                model = tempModel;
 			} else {
 			    String error = String.format( MSG_FILE_NOT_EXISTS_ERROR, NAME, directory );
 				log.error( error );
@@ -256,7 +261,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 		}
 	}
 	
-	@Override public void exportDeveloperApp( Path directory ) throws IOException {
+	@Override public synchronized void exportDeveloperApp( Path directory ) throws IOException {
 		if ( null != model && null != directory ) {
 			if ( !Files.exists( directory, LinkOption.NOFOLLOW_LINKS ) )
 				Files.createDirectory( directory );
@@ -265,6 +270,22 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 				log.error( error );
 				throw new IOException( error );
 			}
+			
+            for ( int i = 0 ; i < model.getProducts().size() ; i++ ) {
+                String product = StringUtils.trim( model.getProducts().get( i ) );
+                
+                if ( StringUtils.isEmpty( product ) ) {
+                    log.warn( String.format( MSG_PROD_WARN, i ) );
+                    model.getProducts().remove( i );
+                    i--;
+                }
+            }
+            
+            if ( 0 == model.getProducts().size() ) {
+                String error = String.format( MSG_VALUE_SEP_ERROR, PROPERTY_PRODUCTS, PRODUCT_SEPARATOR );
+                log.error( error );
+                throw new RuntimeException( error );
+            }
 			
 			Collections.sort( model.getProducts() );
 			Path nameProps = directory.resolve( NAME );
@@ -289,7 +310,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 					linkedTreeMap.put( PROPERTY_NAME, key );
 					linkedTreeMap.put( PROPERTY_VALUE, attributes.get( key ) );
 					
-					if ( StringUtils.isEmpty( linkedTreeMap.get( PROPERTY_VALUE ) ) ) {
+					if ( !NOTES_PROPERTY.equals( linkedTreeMap.get( PROPERTY_NAME ) ) && StringUtils.isEmpty( linkedTreeMap.get( PROPERTY_VALUE ) ) ) {
 					    String error = String.format( MSG_ATTRIB_VALUE_ERROR, linkedTreeMap.get( PROPERTY_NAME ) );
 			            log.error( error );
 			            throw new RuntimeException( error );
@@ -318,14 +339,14 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 		}
 	}
 	
-	@Override public String getCommandForIndex( String command, Object index ) {
+	@Override public synchronized String getCommandForIndex( String command, Object index ) {
 	    if ( null != index )
 	        return command + index.toString();
 	    else
 	        return command;
 	}
 	
-	private void newApp() {
+	private synchronized void newApp() {
 	    save();
 
 	    DeveloperApp oldModel = model;
@@ -359,7 +380,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void open() {
+	private synchronized void open() {
 	    save();
         
         try {
@@ -374,7 +395,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void reload() {
+	private synchronized void reload() {
 	    if ( null != model && modified )
             if ( !view.showMessage( MSG_LOSE_CHANGES, false, true ) )
                 return;
@@ -395,7 +416,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void save() {
+	private synchronized void save() {
 	    if ( null != model && modified ) {
             if ( !view.showMessage( MSG_SURE_SAVE, false, true ) )
                 return;
@@ -417,7 +438,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void saveAs() {
+	private synchronized void saveAs() {
         if ( null != model ) {
             if ( !view.showMessage( MSG_SURE_SAVE, false, true ) )
                 return;
@@ -436,7 +457,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
     }
 	
-	private void addAttribute() {
+	private synchronized void addAttribute() {
 	    if ( null != model ) {
             String attribute = view.requestNewInput( MSG_ADD_ATTRIBUTE );
             attribute = StringUtils.trim( attribute );
@@ -461,7 +482,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void addProduct() {
+	private synchronized void addProduct() {
 	    if ( null != model ) {
 	        String product = view.requestNewInput( MSG_ADD_PRODUCT );
 	        product = StringUtils.trim( product );
@@ -486,7 +507,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	    }
 	}
 	
-	private void deleteProduct( String index ) {
+	private synchronized void deleteProduct( String index ) {
 	    if ( null != model ) {
 	        List<String> products = model.getProducts();
 	        
@@ -506,7 +527,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	    }
 	}
 	
-	private void deleteAttribute( String index ) {
+	private synchronized void deleteAttribute( String index ) {
 	    if ( null != model ) {
             Map<String, String> attributes = model.getAttributes();
             
@@ -521,24 +542,25 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
 	}
 	
-	private void editProduct( Object source, String index ) {
+	private synchronized void editProduct( Object source, String index ) {
 	    if ( null != model ) {
             List<String> products = model.getProducts();
             
             try {
-                DeveloperAppValueChange change = ( DeveloperAppValueChange ) source;
+                String change = ( String ) source;
+                int idx = Integer.parseInt( index );
+                boolean contained = false;
                 
-                if ( !StringUtils.isEmpty( change.getNewValue() ) ) {
-                    if ( !products.contains( change.getNewValue() ) ) {
-                        products.remove( Integer.parseInt( index ) );
-                        products.add( Integer.parseInt( index ), change.getNewValue() );
-                        modified = true;
-                    } else {
-                        view.showMessage( String.format( MSG_PROD_EXISTS_ERROR, change.getNewValue() ), true, false );
-                        view.initialize( false );
-                    }
+                for ( int i = 0 ; i < products.size() ; i++ )
+                    contained = i != idx ? products.get( i ).equals( change ) : contained;
+                
+                
+                if ( !contained ) {
+                    products.remove( Integer.parseInt( index ) );
+                    products.add( Integer.parseInt( index ), change );
+                    modified = true;
                 } else {
-                    view.showMessage( String.format( MSG_PROD_ERROR, change.getNewValue() ), true, false );
+                    view.showMessage( String.format( MSG_PROD_EXISTS_ERROR, change ), true, false );
                     view.initialize( false );
                 }
             } catch ( Exception e ) {
@@ -550,51 +572,46 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	}
 	
 	@SuppressWarnings( "unchecked" )
-    private void editAttribute( Object source, String index ) {
+	private synchronized void editAttribute( Object source, String index ) {
 	    if ( null != model ) {
-            Map<String, String> attributes = model.getAttributes();
-            
-            try {
-                Map<String, DeveloperAppValueChange> changes = ( Map<String, DeveloperAppValueChange> ) source;
-                
-                DeveloperAppValueChange key = changes.get( KEY );
-                DeveloperAppValueChange value = changes.get( VALUE );
-                
-                if ( null != value ) {
-                    if ( !StringUtils.isEmpty( value.getNewValue() ) ) {
-                        if ( attributes.containsKey( index ) ) {
-                            attributes.replace( index, value.getNewValue() );
-                            modified = true;
-                        } else {
-                            attributes.put( index, value.getNewValue() );
-                            modified = true;
-                        }
-                    } else {
-                        view.showMessage( String.format( MSG_ATTRIB_VALUE_ERROR, index ), true, false );
-                        view.initialize( false );
-                    }
-                }
-                
-                if ( null != key ) {
-                    if ( !StringUtils.isEmpty( key.getNewValue() ) ) {
-                        if ( !attributes.containsKey( key.getNewValue() ) ) {
-                            String keyValue = attributes.remove( index );
-                            attributes.put( key.getNewValue() , keyValue );
-                            modified = true;
-                        } else {
-                            view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, key.getNewValue() ), true, false );
-                            view.initialize( false );
-                        }
-                    } else {
-                        view.showMessage( MSG_ATTRIB_ERROR, true, false );
-                        view.initialize( false );
-                    }
-                }
-            } catch ( Exception e ) {
-                log.error( e.getLocalizedMessage(), e );
-                view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
-                view.initialize( false );
-            }
-        }
+	        Map<String, String> attributes = model.getAttributes();
+
+	        try {
+	            Map<String, String> changes = ( Map<String, String> ) source;
+
+	            String key = changes.get( KEY );
+	            String value = changes.get( VALUE );
+
+	            if ( null != value ) {
+	                if ( attributes.containsKey( index ) ) {
+	                    attributes.replace( index, value );
+	                    modified = true;
+	                } else {
+	                    attributes.put( index, value );
+	                    modified = true;
+	                }
+	            }
+
+	            if ( null != key ) {
+	                if ( !attributes.containsKey( key ) ) {
+	                    String keyValue = attributes.remove( index );
+	                    attributes.put( key, keyValue );
+	                    modified = true;
+	                    view.updateDocumentProperty( index, key );
+	                } else {
+	                    view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, key ), true, false );
+	                    view.initialize( false );
+	                }
+	            }
+	        } catch ( Exception e ) {
+	            log.error( e.getLocalizedMessage(), e );
+	            view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+	            view.initialize( false );
+	        }
+	    }
 	}
+	
+	//private void doSomething() {
+	    //org.eclipse.jetty
+	//}
 }

@@ -2,11 +2,15 @@
   "attributes": [
     {
       "name": "DisplayName",
-      "value": "name"
+      "value": "display_name"
     },
     {
       "name": "attribute1",
       "value": "attribute1"
+    },
+    {
+      "name": "Notes",
+      "value": "test note"
     }
   ]
 }

@@ -23,7 +23,6 @@ import org.junit.Before;
 import org.junit.Test;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
-import com.digitaslbi.apigee.tools.DeveloperAppValueChange;
 import com.digitaslbi.apigee.view.DeveloperAppView;
 
 public class DeveloperAppControllerImplTest {
@@ -187,9 +186,7 @@ public class DeveloperAppControllerImplTest {
         controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ), null );
         
         int index = controller.getModel().getProducts().indexOf( TEST_STRING );
-        DeveloperAppValueChange change = new DeveloperAppValueChange();
-        change.setOldValue( TEST_STRING );
-        change.setNewValue( EDIT_STRING );
+        String change = EDIT_STRING;
         controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_EDIPR, index ), change );
         assertTrue( !controller.getModel().getProducts().contains( TEST_STRING ) );
         assertTrue( controller.getModel().getProducts().contains( EDIT_STRING ) );
@@ -198,14 +195,10 @@ public class DeveloperAppControllerImplTest {
     @Test public void commandExecutedEditAttributeTest() {
         controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ), null );
         
-        Map<String,DeveloperAppValueChange> change = new HashMap<>();
-        DeveloperAppValueChange realChange = new DeveloperAppValueChange();
-        realChange.setOldValue( TEST_STRING );
-        realChange.setNewValue( EDIT_STRING );
+        Map<String, String> change = new HashMap<>();
+        String realChange = EDIT_STRING;
         change.put( DeveloperAppController.KEY, realChange );
-        realChange = new DeveloperAppValueChange();
-        realChange.setOldValue( TEST_STRING );
-        realChange.setNewValue( EDIT_STRING );
+        realChange = EDIT_STRING;
         change.put( DeveloperAppController.VALUE, realChange );
         
         controller.commandExecuted( controller.getCommandForIndex( DeveloperAppController.CMD_EDIAT, TEST_STRING ), change );

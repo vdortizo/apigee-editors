@@ -1,6 +1,7 @@
 package com.digitaslbi.apigee.view;
 
 import java.awt.Dimension;
+import java.awt.EventQueue;
 import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.Window;
@@ -9,14 +10,15 @@ import java.awt.event.KeyEvent;
 import java.lang.reflect.Method;
 import java.nio.file.Path;
 import java.util.HashMap;
+import java.util.HashSet;
+import java.util.Iterator;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
 
 import javax.swing.GroupLayout;
-import javax.swing.JButton;
-import javax.swing.GroupLayout.Alignment;
 import javax.swing.GroupLayout.Group;
+import javax.swing.JButton;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -31,16 +33,14 @@ import javax.swing.JTextField;
 import javax.swing.UIManager;
 import javax.swing.border.EtchedBorder;
 import javax.swing.border.TitledBorder;
-import javax.swing.event.UndoableEditEvent;
+import javax.swing.event.DocumentEvent;
 import javax.swing.text.Document;
-import javax.swing.undo.UndoableEdit;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.digitaslbi.apigee.controller.DeveloperAppController;
 import com.digitaslbi.apigee.model.DeveloperApp;
-import com.digitaslbi.apigee.tools.DeveloperAppValueChange;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -105,20 +105,42 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
     private JPanel panel;
     
     private DeveloperAppController controller;
+    
     private boolean loading;
+    private String lastChange;
+    private String lastType;
+    private String lastProperty;
+    private String lastKv;
+    private Set<Document> documents;
 
     public DeveloperAppViewImpl( DeveloperAppController controller ) {
         this.controller = controller;
         this.controller.setView( this );
         
+        lastChange = StringUtils.EMPTY;
+        lastType = StringUtils.EMPTY;
+        lastProperty = StringUtils.EMPTY;
+        lastKv = StringUtils.EMPTY;
+        documents = new HashSet<>();
+        
         System.setProperty( LF_APPLE_MENU, Boolean.TRUE.toString() );
+        
+        try {
+            UIManager.setLookAndFeel( UIManager.getSystemLookAndFeelClassName() );
+        } catch ( Exception e ) {
+            log.error( MSG_GRAPHICAL_ERROR, e );
+            showMessage( MSG_GRAPHICAL_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+            System.exit( -1 );
+        }
+        
         initialize( true );
         enableOSX( frame );
     }
     
-    @Override public void initialize( boolean firstTime ) {
+    @Override public synchronized void initialize( boolean firstTime ) {
         DeveloperApp model = controller.getModel();
         loading = true;
+        documents.clear();
         
         if ( firstTime ) {
             nameLabel = new JLabel( NAME );
@@ -132,13 +154,13 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             nameContentField.setEditable( false );
             displayNameContentField = new JTextField( 1 );
             displayNameContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
-            displayNameContentField.getDocument().addUndoableEditListener( this );
+            displayNameContentField.getDocument().addDocumentListener( this );
             displayNameContentField.getDocument().putProperty( PROPERTY_NAME, DISPLAY_NAME_VALUE );
             displayNameContentField.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
             displayNameContentField.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
             notesContentArea = new JTextArea( 3, 1 );
             notesContentArea.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
-            notesContentArea.getDocument().addUndoableEditListener( this );
+            notesContentArea.getDocument().addDocumentListener( this );
             notesContentArea.getDocument().putProperty( PROPERTY_NAME, NOTES_VALUE );
             notesContentArea.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
             notesContentArea.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
@@ -242,6 +264,9 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         notesContentArea.setText( null != model && null != model.getAttributes() && model.getAttributes().containsKey( NOTES_VALUE ) ? model.getAttributes().get( NOTES_VALUE ) : StringUtils.EMPTY );
         notesContentArea.setEditable( null != model );
         
+        documents.add( displayNameContentField.getDocument() );
+        documents.add( notesContentArea.getDocument() );
+        
         productsPanel.removeAll();
         productsPanel.validate();
         
@@ -261,9 +286,12 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             for ( String product : products ) {
                 JTextField productName = new JTextField( product, 1 );
                 productName.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
-                productName.getDocument().addUndoableEditListener( this );
+                productName.getDocument().addDocumentListener( this );
                 productName.getDocument().putProperty( PROPERTY_NAME, products.indexOf( product ) );
                 productName.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_PRO );
+                productName.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.KEY );
+                
+                documents.add( productName.getDocument() );
                 
                 JButton productDeleteButton = new JButton();
                 productDeleteButton.setText( DELETE );
@@ -301,17 +329,20 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
                 if ( !DISPLAY_NAME_VALUE.equals( attribute ) && !NOTES_VALUE.equals( attribute ) ) {
                     JTextField attributeName = new JTextField( attribute, 1 );
                     attributeName.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
-                    attributeName.getDocument().addUndoableEditListener( this );
+                    attributeName.getDocument().addDocumentListener( this );
                     attributeName.getDocument().putProperty( PROPERTY_NAME, attribute );
                     attributeName.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
                     attributeName.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.KEY );
                     
                     JTextField attributeContent = new JTextField( model.getAttributes().get( attribute ), 1 );
                     attributeContent.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
-                    attributeContent.getDocument().addUndoableEditListener( this );
+                    attributeContent.getDocument().addDocumentListener( this );
                     attributeContent.getDocument().putProperty( PROPERTY_NAME, attribute );
                     attributeContent.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
                     attributeContent.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
+                    
+                    documents.add( attributeName.getDocument() );
+                    documents.add( attributeContent.getDocument() );
                     
                     JButton attributeDeleteButton = new JButton();
                     attributeDeleteButton.setText( DELETE );
@@ -331,7 +362,19 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         loading = false;
     }
     
-    @Override public Path getFileOrDirectory( boolean directoyOnly ) {
+    @Override synchronized public void updateDocumentProperty( String oldName, String newName ) {
+        Iterator<Document> documentsIterator = documents.iterator();
+        
+        while ( documentsIterator.hasNext() ) {
+            Document document = documentsIterator.next();
+            
+            if ( oldName.equals( document.getProperty( PROPERTY_NAME ) ) ) {
+                document.putProperty( PROPERTY_NAME, newName );
+            }
+        }
+    }
+    
+    @Override public synchronized Path getFileOrDirectory( boolean directoyOnly ) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode( directoyOnly ? JFileChooser.DIRECTORIES_ONLY : JFileChooser.FILES_ONLY );
         chooser.setDialogTitle( MSG_FILE_DIR_TITLE );
@@ -343,7 +386,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             return null;
     }
     
-    @Override public Path saveFileOrDirectory( boolean directoyOnly ) {
+    @Override public synchronized Path saveFileOrDirectory( boolean directoyOnly ) {
         JFileChooser chooser = new JFileChooser();
         chooser.setFileSelectionMode( directoyOnly ? JFileChooser.DIRECTORIES_ONLY : JFileChooser.FILES_ONLY );
         chooser.setDialogTitle( MSG_FILE_DIR_TITLE );
@@ -355,7 +398,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             return null;
     }
     
-    @Override public boolean showMessage( String message, boolean isError, boolean isYesNo ) {
+    @Override public synchronized boolean showMessage( String message, boolean isError, boolean isYesNo ) {
         int response = -1;
         
         if ( isYesNo )
@@ -369,71 +412,38 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             return false;
     }
     
-    @Override public String requestNewInput( String message ) {
+    @Override public synchronized String requestNewInput( String message ) {
         return JOptionPane.showInputDialog( frame, message, MSG_ADD_TITLE, JOptionPane.QUESTION_MESSAGE );
     }
     
-    @Override public void run() {
-        try {
-            UIManager.setLookAndFeel( UIManager.getSystemLookAndFeelClassName() );
-            frame.setVisible( true );
-        } catch ( Exception e ) {
-            log.error( MSG_GRAPHICAL_ERROR, e );
-            showMessage( MSG_GRAPHICAL_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
-            System.exit( -1 );
-        }
+    @Override public synchronized void run() {
+        frame.setVisible( true );
     }
     
-    @Override public void undoableEditHappened( UndoableEditEvent e ) {
-        if ( !loading ) {
-            try {
-                Document document = ( Document ) e.getSource();
-                String type = document.getProperty( PROPERTY_TYPE ).toString();
-                String property = document.getProperty( PROPERTY_NAME ).toString();
+    @Override public synchronized void actionPerformed( ActionEvent e ) {
+        EventQueue.invokeLater( () -> {
+            if ( !loading ) {
+                controller.commandExecuted( e.getActionCommand(), e.getSource() );
                 
-                if ( PROPERTY_TYPE_ATT.equals( type ) ) {
-                    String kv = document.getProperty( PROPERTY_KV ).toString();
-                    Map<String, DeveloperAppValueChange> changes = new HashMap<>();
-                    
-                    DeveloperAppValueChange change = new DeveloperAppValueChange();
-                    UndoableEdit edit = e.getEdit();
-                    edit.undo();
-                    change.setOldValue( document.getText( 0, document.getLength() ) );
-                    edit.redo();
-                    change.setNewValue( document.getText( 0, document.getLength() ) );
-                    
-                    if ( !StringUtils.isEmpty( kv ) )
-                        changes.put( kv, change );
-                    
-                    ActionEvent action = new ActionEvent( changes, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIAT, property ) );
-                    actionPerformed( action );
-                } else if ( PROPERTY_TYPE_PRO.equals( type ) ) {
-                    DeveloperAppValueChange change = new DeveloperAppValueChange();
-                    UndoableEdit edit = e.getEdit();
-                    edit.undo();
-                    change.setOldValue( document.getText( 0, document.getLength() ) );
-                    edit.redo();
-                    change.setNewValue( document.getText( 0, document.getLength() ) );
-                    
-                    ActionEvent action = new ActionEvent( change, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIPR, property ) );
-                    actionPerformed( action );
-                }
-            } catch ( Exception ex ) {
-                log.error( MSG_GRAPHICAL_ERROR, e );
+                if ( !e.getActionCommand().contains( DeveloperAppController.CMD_EDIPR ) && !e.getActionCommand().contains( DeveloperAppController.CMD_EDIAT ) )
+                    initialize( false );
             }
-        }
+        } );
     }
     
-    @Override public void actionPerformed( ActionEvent e ) {
-        if ( !loading ) {
-            controller.commandExecuted( e.getActionCommand(), e.getSource() );
-            
-            if ( !e.getActionCommand().contains( DeveloperAppController.CMD_EDIPR ) && !e.getActionCommand().contains( DeveloperAppController.CMD_EDIAT ) )
-                initialize( false );
-        }
+    @Override public synchronized void insertUpdate( DocumentEvent e ) {
+        EventQueue.invokeLater( () -> documentUpdate( e.getDocument() ) );
+    }
+
+    @Override public synchronized void removeUpdate( DocumentEvent e ) {
+        EventQueue.invokeLater( () -> documentUpdate( e.getDocument() ) );
+    }
+
+    @Override public synchronized void changedUpdate( DocumentEvent e ) {
+        EventQueue.invokeLater( () -> documentUpdate( e.getDocument() ) );
     }
     
-    private void enableOSX( JFrame frame ) {
+    private synchronized void enableOSX( JFrame frame ) {
         try {
             Class<?> utility = Class.forName( LF_APPLE_UTIL );
             Class<?> params[] = new Class[]{ Window.class, Boolean.TYPE };
@@ -441,6 +451,43 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             method.invoke( utility, frame, true );
         } catch ( Exception e ) {
             log.warn ( MSG_FS_OSX_ERROR, e );
+        }
+    }
+    
+    private synchronized void documentUpdate( Document document ) {
+        if ( !loading ) {
+            try {
+                String change = document.getText( 0, document.getLength() );
+                String type = document.getProperty( PROPERTY_TYPE ).toString();
+                String property = document.getProperty( PROPERTY_NAME ).toString();
+                String kv = document.getProperty( PROPERTY_KV ).toString();
+                
+                log.info( "Changes to " + property +  ": { type: " + type + ", subtype: " + kv + ", change: " + change + " }" );
+                
+                if ( lastChange.equals( change ) && lastType.equals( type ) && lastProperty.equals( property ) && lastKv.equals( kv ) )
+                    return;
+                else {
+                    if ( PROPERTY_TYPE_ATT.equals( type ) ) {
+                        Map<String, String> changes = new HashMap<>();
+    
+                        if ( !StringUtils.isEmpty( kv ) )
+                            changes.put( kv, change );
+    
+                        ActionEvent action = new ActionEvent( changes, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIAT, property ) );
+                        actionPerformed( action );
+                    } else if ( PROPERTY_TYPE_PRO.equals( type ) ) {
+                        ActionEvent action = new ActionEvent( change, ActionEvent.ACTION_PERFORMED, controller.getCommandForIndex( DeveloperAppController.CMD_EDIPR, property ) );
+                        actionPerformed( action );
+                    }
+                    
+                    lastChange = change;
+                    lastType = type;
+                    lastProperty = property;
+                    lastKv = kv;
+                }
+            } catch ( Exception ex ) {
+                log.error( MSG_GRAPHICAL_ERROR, ex );
+            }
         }
     }
 }

@@ -3,7 +3,7 @@ package com.digitaslbi.apigee.view;
 import java.awt.event.ActionListener;
 import java.nio.file.Path;
 
-import javax.swing.event.UndoableEditListener;
+import javax.swing.event.DocumentListener;
 
 /**
  * This view interface defines specific methods to import/export/work with Apigee
@@ -11,12 +11,19 @@ import javax.swing.event.UndoableEditListener;
  * 
  * @author VIctor Ortiz
  */
-public interface DeveloperAppView extends Runnable, UndoableEditListener, ActionListener {
+public interface DeveloperAppView extends Runnable, ActionListener, DocumentListener {
     /**
      * Initializes all graphical attributes
      * @param firstTime indicates if this is the first execution of this method
      */
     public void initialize( boolean firstTime );
+    
+    /**
+     * Updates a property name in the documents of the view
+     * @param oldName the old name
+     * @param newName the new name
+     */
+    public void updateDocumentProperty( String oldName, String newName );
     
     /**
      * Gets the path of a file for loading from user input
