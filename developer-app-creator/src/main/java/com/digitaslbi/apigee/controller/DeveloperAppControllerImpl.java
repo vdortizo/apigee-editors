@@ -433,9 +433,16 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         try {
             Path loadPath = path;
             
-            if ( null == loadPath )
+            if ( null == loadPath ) {
                 loadPath = view.saveFileOrDirectory( true );
                 
+                if ( null != loadPath ) {
+                    if ( Files.exists( loadPath.resolve( ATTRIBUTES ), LinkOption.NOFOLLOW_LINKS ) || Files.exists( loadPath.resolve( NAME ), LinkOption.NOFOLLOW_LINKS ) )
+                        if ( !view.showMessage( MSG_SURE_OVERWRITE , false, true ) )
+                            return;
+                }
+            }
+            
             if ( null != loadPath )
                 exportDeveloperApp( loadPath );
         } catch ( Exception ex ) {
@@ -611,6 +618,9 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 		                    attributes.put( key, keyValue );
 		                    modified = true;
 		                    view.updateDocumentProperty( index, key );
+		                } else if ( StringUtils.isEmpty( key ) ) {
+		                    view.showMessage( MSG_ATTRIB_ERROR, true, false );
+                            view.initialize( false );
 		                } else {
 		                    view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, key ), true, false );
 		                    view.initialize( false );

@@ -1,5 +1,6 @@
 package com.digitaslbi.apigee.view;
 
+import java.awt.Color;
 import java.awt.Dimension;
 import java.awt.EventQueue;
 import java.awt.Toolkit;
@@ -17,7 +18,9 @@ import java.util.Set;
 
 import javax.swing.GroupLayout;
 import javax.swing.GroupLayout.Group;
+import javax.swing.InputVerifier;
 import javax.swing.JButton;
+import javax.swing.JComponent;
 import javax.swing.JFileChooser;
 import javax.swing.JFrame;
 import javax.swing.JLabel;
@@ -49,7 +52,7 @@ import lombok.extern.slf4j.Slf4j;
  * @author Victor Ortiz
  */
 @Slf4j
-public class DeveloperAppViewImpl implements DeveloperAppView {
+public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppView {
     private static final String APP_ATTRIBUTES = "Attributes";
     private static final String APP_DETAILS = "Details";
     private static final String APP_PRODUCTS = "Products";
@@ -81,6 +84,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
     private static final String LF_APPLE_UTIL = "com.apple.eawt.FullScreenUtilities";
     
     private static final String MSG_ADD_TITLE = "New";
+    private static final String MSG_EMPTY_NOT_ALLOWED = "This field does not accept empty values";
     private static final String MSG_ERROR = "Error";
     private static final String MSG_FILE_DIR_TITLE = "Please select a file/directory";
     private static final String MSG_FS_OSX_ERROR = "Could not initialize fullscreen for OS X";
@@ -166,6 +170,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             nameContentField.setEditable( false );
             displayNameContentField = new JTextField( 1 );
             displayNameContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
+            displayNameContentField.setInputVerifier( this );
             displayNameContentField.getDocument().addDocumentListener( this );
             displayNameContentField.getDocument().putProperty( PROPERTY_NAME, DISPLAY_NAME_VALUE );
             displayNameContentField.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
@@ -281,7 +286,10 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         displayNameContentField.setEditable( null != model );
         notesContentArea.setText( null != model && null != model.getAttributes() && model.getAttributes().containsKey( NOTES_VALUE ) ? model.getAttributes().get( NOTES_VALUE ) : StringUtils.EMPTY );
         notesContentArea.setEditable( null != model );
-        notesContentArea.setBackground( displayNameContentField.getBackground() );
+        notesContentArea.setBackground( null != model ? null : nameContentField.getBackground() );
+        
+        if ( !firstTime )
+            verify( displayNameContentField );
         
         documents.add( displayNameContentField.getDocument() );
         documents.add( notesContentArea.getDocument() );
@@ -305,11 +313,13 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             for ( String product : products ) {
                 JTextField productName = new JTextField( product, 1 );
                 productName.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
+                productName.setInputVerifier( this );
                 productName.getDocument().addDocumentListener( this );
                 productName.getDocument().putProperty( PROPERTY_NAME, products.indexOf( product ) );
                 productName.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_PRO );
                 productName.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.KEY );
                 
+                verify( productName );
                 documents.add( productName.getDocument() );
                 
                 JButton productDeleteButton = new JButton();
@@ -348,6 +358,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
                 if ( !DISPLAY_NAME_VALUE.equals( attribute ) && !NOTES_VALUE.equals( attribute ) ) {
                     JTextField attributeName = new JTextField( attribute, 1 );
                     attributeName.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
+                    attributeName.setInputVerifier( this );
                     attributeName.getDocument().addDocumentListener( this );
                     attributeName.getDocument().putProperty( PROPERTY_NAME, attribute );
                     attributeName.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
@@ -355,11 +366,14 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
                     
                     JTextField attributeContent = new JTextField( model.getAttributes().get( attribute ), 1 );
                     attributeContent.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
+                    attributeContent.setInputVerifier( this );
                     attributeContent.getDocument().addDocumentListener( this );
                     attributeContent.getDocument().putProperty( PROPERTY_NAME, attribute );
                     attributeContent.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
                     attributeContent.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
                     
+                    verify( attributeName );
+                    verify( attributeContent );
                     documents.add( attributeName.getDocument() );
                     documents.add( attributeContent.getDocument() );
                     
@@ -465,6 +479,24 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
 
     @Override public synchronized void changedUpdate( DocumentEvent e ) {
         EventQueue.invokeLater( () -> documentUpdate( e.getDocument() ) );
+    }
+    
+    @Override public boolean verify( JComponent input ) {
+        if ( input instanceof JTextField ) {
+            JTextField component = ( JTextField ) input;
+            
+            if ( StringUtils.isEmpty( component.getText() ) ) {
+                component.setBackground( Color.PINK );
+                component.setToolTipText( MSG_EMPTY_NOT_ALLOWED );
+                return false;
+            } else {
+                component.setBackground( null );
+                component.setToolTipText( null );
+                return true;
+            }
+        }
+        
+        return false;
     }
     
     private synchronized void enableOSX( JFrame frame ) {
