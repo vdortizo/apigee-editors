@@ -18,7 +18,10 @@ import java.util.TreeMap;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.eclipse.jetty.client.HttpClient;
+import org.apache.http.HttpResponse;
+import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpGet;
+import org.apache.http.impl.client.HttpClientBuilder;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
 import com.digitaslbi.apigee.tools.DeveloperAppComparator;
@@ -77,6 +80,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
     private static final String MSG_PROD_WARN = "The product at index [%s] is empty and will be ignored";
     private static final String MSG_PROD_ZERO = "A developer app cannot contain no products";
     private static final String MSG_SURE_SAVE = "Do you want to save your changes?";
+    private static final String MSG_SURE_OVERWRITE = "A developer app already exists in this location, do you want to overwrite it?";
     private static final String MSG_VALUE_SEP_ERROR = "The property [%s] must contain one or more values, separated by [%s]";
     
 	private Path path;
@@ -451,8 +455,13 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         try {
             Path loadPath = view.saveFileOrDirectory( true );
                 
-            if ( null != loadPath )
+            if ( null != loadPath ) {
+                if ( Files.exists( loadPath.resolve( ATTRIBUTES ), LinkOption.NOFOLLOW_LINKS ) || Files.exists( loadPath.resolve( NAME ), LinkOption.NOFOLLOW_LINKS ) )
+                    if ( !view.showMessage( MSG_SURE_OVERWRITE , false, true ) )
+                        return;
+                
                 exportDeveloperApp( loadPath );
+            }
         } catch ( Exception ex ) {
             log.error( ex.getLocalizedMessage(), ex );
             view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + ex.getLocalizedMessage(), true, false );
@@ -622,13 +631,10 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 			//verify all products
 			//test upload
 			try {
-				HttpClient client = new HttpClient(  );
-				client.start();
-
-				log.info( client.GET( "http://www.google.com" )//https://api.enterprise.apigee.com/v1/organizations/digitaslbi-nonprod/apiproducts" )
-						.getContentAsString() );
-
-				client.stop();
+	            HttpClient client = HttpClientBuilder.create().build();
+	            HttpResponse response = client.execute( new HttpGet( "https://api.enterprise.apigee.com/v1/organizations/digitaslbi-nonprod/apiproducts" ) );
+	            
+	            log.info( response.getStatusLine().toString() );
 			} catch ( Exception e ) {
 				log.error( e.getLocalizedMessage(), e );
 				view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
