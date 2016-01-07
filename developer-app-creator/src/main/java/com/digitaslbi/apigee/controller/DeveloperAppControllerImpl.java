@@ -18,6 +18,7 @@ import java.util.TreeMap;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.eclipse.jetty.client.HttpClient;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
 import com.digitaslbi.apigee.tools.DeveloperAppComparator;
@@ -123,6 +124,8 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
                 editAttribute( source, index ); break;
             case CMD_EDIPR:
                 editProduct( source, index ); break;
+            case CMD_TSTUP:
+            	testDeveloperAppUpload(); break;
             default:
                 log.warn( String.format( MSG_NO_KNOWN_ACTION, command ) ); break;
         }
@@ -593,14 +596,16 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	            }
 
 	            if ( null != key ) {
-	                if ( !attributes.containsKey( key ) ) {
-	                    String keyValue = attributes.remove( index );
-	                    attributes.put( key, keyValue );
-	                    modified = true;
-	                    view.updateDocumentProperty( index, key );
-	                } else {
-	                    view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, key ), true, false );
-	                    view.initialize( false );
+	            	if ( !key.equals( index ) ) {
+		                if ( !attributes.containsKey( key ) ) {
+		                    String keyValue = attributes.remove( index );
+		                    attributes.put( key, keyValue );
+		                    modified = true;
+		                    view.updateDocumentProperty( index, key );
+		                } else {
+		                    view.showMessage( String.format( MSG_ATTRIB_EXISTS_ERROR, key ), true, false );
+		                    view.initialize( false );
+		                }
 	                }
 	            }
 	        } catch ( Exception e ) {
@@ -611,7 +616,23 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	    }
 	}
 	
-	//private void doSomething() {
-	    //org.eclipse.jetty
-	//}
+	private void testDeveloperAppUpload() {
+		if ( null != model ) {
+			//validate model
+			//verify all products
+			//test upload
+			try {
+				HttpClient client = new HttpClient(  );
+				client.start();
+
+				log.info( client.GET( "http://www.google.com" )//https://api.enterprise.apigee.com/v1/organizations/digitaslbi-nonprod/apiproducts" )
+						.getContentAsString() );
+
+				client.stop();
+			} catch ( Exception e ) {
+				log.error( e.getLocalizedMessage(), e );
+				view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+			}
+		}
+	}
 }

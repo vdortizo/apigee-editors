@@ -2,7 +2,6 @@ package com.digitaslbi.apigee.view;
 
 import java.awt.Dimension;
 import java.awt.EventQueue;
-import java.awt.Font;
 import java.awt.Toolkit;
 import java.awt.Window;
 import java.awt.event.ActionEvent;
@@ -31,12 +30,12 @@ import javax.swing.JScrollPane;
 import javax.swing.JTextArea;
 import javax.swing.JTextField;
 import javax.swing.UIManager;
+import javax.swing.UIManager.LookAndFeelInfo;
 import javax.swing.border.EtchedBorder;
 import javax.swing.border.TitledBorder;
 import javax.swing.event.DocumentEvent;
 import javax.swing.text.Document;
 
-import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
 
 import com.digitaslbi.apigee.controller.DeveloperAppController;
@@ -64,9 +63,11 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
     private static final String MNIT_RELOAD = "Reload";
     private static final String MNIT_ADDAT = "Add attribute";
     private static final String MNIT_ADDPR = "Add product";
+    private static final String MNIT_TSTUP = "Test upload";
     private static final String MENU_FILE = "File";
     private static final String MENU_EDIT = "Edit";
     private static final String NAME = "Name:";
+    private static final String NIMBUS = "Nimbus";
     private static final String NOTES = "Notes:";
     private static final String NOTES_VALUE = "Notes";
     private static final String PROPERTY_NAME = "PROPERTY";
@@ -112,6 +113,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
     private String lastProperty;
     private String lastKv;
     private Set<Document> documents;
+    private Path currentPath;
 
     public DeveloperAppViewImpl( DeveloperAppController controller ) {
         this.controller = controller;
@@ -124,14 +126,27 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         documents = new HashSet<>();
         
         System.setProperty( LF_APPLE_MENU, Boolean.TRUE.toString() );
+        boolean nimbusSet = false;
         
-        try {
-            UIManager.setLookAndFeel( UIManager.getSystemLookAndFeelClassName() );
-        } catch ( Exception e ) {
-            log.error( MSG_GRAPHICAL_ERROR, e );
-            showMessage( MSG_GRAPHICAL_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
-            System.exit( -1 );
+        for ( LookAndFeelInfo info : UIManager.getInstalledLookAndFeels() ) {
+        	if ( NIMBUS.equals( info.getName() ) ) {
+        		try {
+        			UIManager.setLookAndFeel( info.getClassName() );
+        			nimbusSet = true;
+        		} catch ( Exception e ) {
+        			log.error( MSG_GRAPHICAL_ERROR, e );
+        		}
+        		
+        		break;
+        	}
         }
+        
+        if ( !nimbusSet )
+        	try {
+            	UIManager.setLookAndFeel( UIManager.getSystemLookAndFeelClassName() );
+			} catch ( Exception ex ) {
+				log.error( MSG_GRAPHICAL_ERROR, ex );
+			}
         
         initialize( true );
         enableOSX( frame );
@@ -144,11 +159,8 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         
         if ( firstTime ) {
             nameLabel = new JLabel( NAME );
-            nameLabel.setFont( nameLabel.getFont().deriveFont( Font.BOLD ) );
             displayNameLabel = new JLabel( DISPLAY_NAME );
-            displayNameLabel.setFont( displayNameLabel.getFont().deriveFont( Font.BOLD ) );
             notesLabel = new JLabel( NOTES );
-            notesLabel.setFont( notesLabel.getFont().deriveFont( Font.BOLD ) );
             nameContentField = new JTextField( 1 );
             nameContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
             nameContentField.setEditable( false );
@@ -159,6 +171,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             displayNameContentField.getDocument().putProperty( PROPERTY_TYPE, PROPERTY_TYPE_ATT );
             displayNameContentField.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
             notesContentArea = new JTextArea( 3, 1 );
+            notesContentArea.setFont( nameContentField.getFont() );
             notesContentArea.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
             notesContentArea.getDocument().addDocumentListener( this );
             notesContentArea.getDocument().putProperty( PROPERTY_NAME, NOTES_VALUE );
@@ -221,6 +234,10 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             addProduct.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
             addProduct.addActionListener( this );
             
+            JMenuItem testUpload = new JMenuItem( MNIT_TSTUP, KeyEvent.VK_T );
+            testUpload.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_TSTUP, null ) );
+            testUpload.addActionListener( this );
+            
             JMenu fileMenu = new JMenu( MENU_FILE );
             fileMenu.setMnemonic( KeyEvent.VK_F );
             fileMenu.add( newApp );
@@ -228,6 +245,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             fileMenu.add( save );
             fileMenu.add( saveAs );
             fileMenu.add( reload );
+            fileMenu.add( testUpload );
             
             JMenu editMenu = new JMenu( MENU_EDIT );
             editMenu.setMnemonic( KeyEvent.VK_E );
@@ -239,7 +257,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             menubar.add( editMenu );
             
             Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
-            Dimension window = new Dimension( 3 * screen.width / 4, 3 * screen.height / 4 );
+            Dimension window = new Dimension( screen.width / 3, screen.height / 3 );
             
             frame = new JFrame();
             frame.setBounds( ( screen.width / 2 ) - ( window.width / 2 ), ( screen.height / 2 ) - ( window.height / 2 ), window.width, window.height );
@@ -263,6 +281,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         displayNameContentField.setEditable( null != model );
         notesContentArea.setText( null != model && null != model.getAttributes() && model.getAttributes().containsKey( NOTES_VALUE ) ? model.getAttributes().get( NOTES_VALUE ) : StringUtils.EMPTY );
         notesContentArea.setEditable( null != model );
+        notesContentArea.setBackground( displayNameContentField.getBackground() );
         
         documents.add( displayNameContentField.getDocument() );
         documents.add( notesContentArea.getDocument() );
@@ -380,9 +399,13 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         chooser.setDialogTitle( MSG_FILE_DIR_TITLE );
         chooser.setMultiSelectionEnabled( false );
         
-        if ( JFileChooser.APPROVE_OPTION == chooser.showOpenDialog( frame ) )
+        if ( null != currentPath )
+        	chooser.setCurrentDirectory( currentPath.toFile() );
+        
+        if ( JFileChooser.APPROVE_OPTION == chooser.showOpenDialog( frame ) ) {
+        	currentPath = chooser.getCurrentDirectory().toPath();
             return chooser.getSelectedFile().toPath();
-        else
+    	} else
             return null;
     }
     
@@ -392,9 +415,10 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         chooser.setDialogTitle( MSG_FILE_DIR_TITLE );
         chooser.setMultiSelectionEnabled( false );
         
-        if ( JFileChooser.APPROVE_OPTION == chooser.showSaveDialog( frame ) )
+        if ( JFileChooser.APPROVE_OPTION == chooser.showSaveDialog( frame ) ) {
+        	currentPath = chooser.getCurrentDirectory().toPath();
             return chooser.getSelectedFile().toPath();
-        else
+        } else
             return null;
     }
     
@@ -402,11 +426,11 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
         int response = -1;
         
         if ( isYesNo )
-            response = JOptionPane.showConfirmDialog( frame, message, isError ? MSG_ERROR : MSG_WARNING, JOptionPane.OK_CANCEL_OPTION );
+            response = JOptionPane.showConfirmDialog( frame, message, isError ? MSG_ERROR : MSG_WARNING, JOptionPane.YES_NO_OPTION );
         else 
             JOptionPane.showMessageDialog( frame, message, isError ? MSG_ERROR : MSG_WARNING, isError ? JOptionPane.ERROR_MESSAGE : JOptionPane.WARNING_MESSAGE );
         
-        if ( JOptionPane.OK_OPTION == response )
+        if ( JOptionPane.YES_OPTION == response )
             return true;
         else
             return false;
@@ -425,7 +449,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             if ( !loading ) {
                 controller.commandExecuted( e.getActionCommand(), e.getSource() );
                 
-                if ( !e.getActionCommand().contains( DeveloperAppController.CMD_EDIPR ) && !e.getActionCommand().contains( DeveloperAppController.CMD_EDIAT ) )
+                if ( !e.getActionCommand().contains( DeveloperAppController.CMD_EDIPR ) && !e.getActionCommand().contains( DeveloperAppController.CMD_EDIAT ) && !e.getActionCommand().contains( DeveloperAppController.CMD_TSTUP ) )
                     initialize( false );
             }
         } );
@@ -450,7 +474,7 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
             Method method = utility.getMethod( LF_APPLE_FULLSCREEN, params );
             method.invoke( utility, frame, true );
         } catch ( Exception e ) {
-            log.warn ( MSG_FS_OSX_ERROR, e );
+            log.warn( MSG_FS_OSX_ERROR );
         }
     }
     
@@ -461,8 +485,6 @@ public class DeveloperAppViewImpl implements DeveloperAppView {
                 String type = document.getProperty( PROPERTY_TYPE ).toString();
                 String property = document.getProperty( PROPERTY_NAME ).toString();
                 String kv = document.getProperty( PROPERTY_KV ).toString();
-                
-                log.info( "Changes to " + property +  ": { type: " + type + ", subtype: " + kv + ", change: " + change + " }" );
                 
                 if ( lastChange.equals( change ) && lastType.equals( type ) && lastProperty.equals( property ) && lastKv.equals( kv ) )
                     return;

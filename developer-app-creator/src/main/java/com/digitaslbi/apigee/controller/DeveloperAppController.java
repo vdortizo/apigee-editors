@@ -24,6 +24,7 @@ public interface DeveloperAppController {
     public static final String CMD_DELPR = "DELPR";
     public static final String CMD_EDIAT = "EDIAT";
     public static final String CMD_EDIPR = "EDIPR";
+    public static final String CMD_TSTUP = "TSTUP";
     
     public static final String KEY = "key";
     public static final String VALUE = "value";
