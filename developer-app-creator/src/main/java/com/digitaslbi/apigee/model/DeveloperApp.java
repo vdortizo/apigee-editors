@@ -13,7 +13,7 @@ import lombok.NonNull;
  */
 @Data
 public class DeveloperApp {
-	@NonNull private String name; 
+	@NonNull private String name;
 	@NonNull private List<String> products;
 
 	private Map<String, String> attributes;

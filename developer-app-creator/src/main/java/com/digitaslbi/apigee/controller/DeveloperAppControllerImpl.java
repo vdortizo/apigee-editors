@@ -5,6 +5,8 @@ import java.io.FileOutputStream;
 import java.io.FileReader;
 import java.io.FileWriter;
 import java.io.IOException;
+import java.io.Reader;
+import java.io.Writer;
 import java.nio.file.Files;
 import java.nio.file.LinkOption;
 import java.nio.file.Path;
@@ -18,10 +20,6 @@ import java.util.TreeMap;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
-import org.apache.http.HttpResponse;
-import org.apache.http.client.HttpClient;
-import org.apache.http.client.methods.HttpGet;
-import org.apache.http.impl.client.HttpClientBuilder;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
 import com.digitaslbi.apigee.tools.DeveloperAppComparator;
@@ -71,7 +69,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String MSG_NO_PRIMARY_PROPERTY = "The attribute [DisplayName] was not found, it was added with the default value";
 	private static final String MSG_NO_PROD_ERROR = "A developer app must contain at least one product";
 	private static final String MSG_NOT_DIR_ERROR = "The path [%s] is not a directory";
-	private static final String MSG_NOT_EXIST_PROP_ERROR = "The file [%s] does not contain the required property [%s]";
+	private static final String MSG_NOT_EXIST_PROP_ERROR = "The reader does not contain the required property [%s]";
 	private static final String MSG_NOT_IMPORT_WARN = ", no attributes will be imported";
 	private static final String MSG_NULL_ERROR = "The app object or the path [%s] are null";
 	private static final String MSG_NULL_PROP_ERROR = "The property [%s] cannot be null or empty";
@@ -135,7 +133,6 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
         }
     }
 	
-	@SuppressWarnings( "unchecked" )
 	@Override public synchronized void importDeveloperApp( Path directory ) throws IOException {
 		if ( null != directory && Files.isDirectory( directory, LinkOption.NOFOLLOW_LINKS ) ) {
 			Path nameProps = directory.resolve( NAME );
@@ -195,54 +192,8 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 				
 				if ( Files.exists( attributesJson, LinkOption.NOFOLLOW_LINKS ) ) {
 					FileReader reader = new FileReader( attributesJson.toFile() );
-					Gson gson = new Gson();
-					Map<String, List<LinkedTreeMap<String, String>>> attributesWrapper = null;
-					
-					try {
-					    attributesWrapper = gson.fromJson( reader, TreeMap.class );
-	                    reader.close();
-                    } catch ( Exception e ) {
-                        log.warn( e.getLocalizedMessage() );
-                    }
-					
-					if ( null != attributesWrapper ) {
-					    if ( !attributesWrapper.containsKey( PROPERTY_ATTRIBUTES ) ) {
-					        tempModel.setAttributes( new TreeMap<>( new DeveloperAppComparator() ) );
-	                        log.warn( String.format( MSG_NOT_EXIST_PROP_ERROR, ATTRIBUTES, PROPERTY_ATTRIBUTES ) );
-					    } else {
-	                        List<LinkedTreeMap<String, String>> attributesList = attributesWrapper.get( PROPERTY_ATTRIBUTES );
-	                        Map<String, String> attributes = new TreeMap<>( new DeveloperAppComparator() );
-	                        
-	                        for ( LinkedTreeMap<String, String> linkedTreeMap : attributesList ) {
-	                            Set<String> mapKeys = linkedTreeMap.keySet();
-	                            
-	                            String key = null;
-	                            String value = null;
-	                            
-	                            for ( String mapKey : mapKeys ) {
-	                                if ( mapKey.equals( PROPERTY_NAME ) )
-	                                    key = linkedTreeMap.get( mapKey );
-	                                
-	                                if ( mapKey.equals( PROPERTY_VALUE ) )
-	                                    value = linkedTreeMap.get( mapKey );
-	                            }
-	                            
-	                            if ( null != value && null != key ) {
-	                                if ( StringUtils.isEmpty( key ) )
-	                                    log.warn( MSG_ATTRIB_WARN );
-	                                else
-	                                    attributes.put( key, value );
-	                            }
-	                            
-	                            key = value = null;
-	                        }
-
-	                        tempModel.setAttributes( attributes );
-	                    }
-					} else {
-					    tempModel.setAttributes( new TreeMap<>( new DeveloperAppComparator() ) );
-					    log.warn( String.format( MSG_NOT_EXIST_PROP_ERROR, ATTRIBUTES, PROPERTY_ATTRIBUTES ) );
-                    }
+					tempModel.setAttributes( readAttributesMap( reader ) );
+					reader.close();
 				} else {
 					log.warn( String.format( MSG_FILE_NOT_EXISTS_ERROR + MSG_NOT_IMPORT_WARN, ATTRIBUTES, directory ) );
 				}
@@ -308,32 +259,20 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 			properties.store( new FileOutputStream( nameProps.toFile() ), null );
 			
 			if ( null != model.getAttributes() ) {
-				Map<String, List<LinkedTreeMap<String, String>>> attributesWrapper = new TreeMap<>();
-				List<LinkedTreeMap<String, String>> attributesList = new ArrayList<>();
 				Map<String, String> attributes = model.getAttributes();
 				
-				for ( String key : attributes.keySet() ) {
-					LinkedTreeMap<String, String> linkedTreeMap = new LinkedTreeMap<>();
-					linkedTreeMap.put( PROPERTY_NAME, key );
-					linkedTreeMap.put( PROPERTY_VALUE, attributes.get( key ) );
-					
-					if ( !NOTES_PROPERTY.equals( linkedTreeMap.get( PROPERTY_NAME ) ) && StringUtils.isEmpty( linkedTreeMap.get( PROPERTY_VALUE ) ) ) {
-					    String error = String.format( MSG_ATTRIB_VALUE_ERROR, linkedTreeMap.get( PROPERTY_NAME ) );
+				for ( String key : attributes.keySet() )
+					if ( !NOTES_PROPERTY.equals( key ) && StringUtils.isEmpty( attributes.get( key ) ) ) {
+					    String error = String.format( MSG_ATTRIB_VALUE_ERROR, key );
 			            log.error( error );
 			            throw new RuntimeException( error );
 					}
-					
-					attributesList.add( linkedTreeMap );
-				}
-				
-				attributesWrapper.put( PROPERTY_ATTRIBUTES, attributesList );
 				
 				if ( Files.exists( attributesJson, LinkOption.NOFOLLOW_LINKS ) )
 					log.warn( String.format( MSG_EXISTS_WARN, ATTRIBUTES, directory ) );
 				
 				FileWriter writer = new FileWriter( attributesJson.toFile() );
-				Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-				gson.toJson( attributesWrapper, writer );
+				writeAttributesJson( writer, attributes );
 				writer.close();
 			}
 			
@@ -637,18 +576,76 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	
 	private void testDeveloperAppUpload() {
 		if ( null != model ) {
-			//validate model
-			//verify all products
-			//test upload
-			try {
-	            HttpClient client = HttpClientBuilder.create().build();
-	            HttpResponse response = client.execute( new HttpGet( "https://api.enterprise.apigee.com/v1/organizations/digitaslbi-nonprod/apiproducts" ) );
-	            
-	            log.info( response.getStatusLine().toString() );
-			} catch ( Exception e ) {
-				log.error( e.getLocalizedMessage(), e );
-				view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
-			}
+			//TODO: validate model
+			//TODO: verify all products
+			//TODO: test upload
 		}
+	}
+	
+	public synchronized void writeAttributesJson( Writer writer, Map<String, String> attributes ) {
+	    Map<String, List<LinkedTreeMap<String, String>>> attributesWrapper = new TreeMap<>();
+        List<LinkedTreeMap<String, String>> attributesList = new ArrayList<>();
+        
+        for ( String key : attributes.keySet() ) {
+            LinkedTreeMap<String, String> linkedTreeMap = new LinkedTreeMap<>();
+            linkedTreeMap.put( PROPERTY_NAME, key );
+            linkedTreeMap.put( PROPERTY_VALUE, attributes.get( key ) );
+            attributesList.add( linkedTreeMap );
+        }
+        
+        Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+        attributesWrapper.put( PROPERTY_ATTRIBUTES, attributesList );
+        gson.toJson( attributesWrapper, writer );
+	}
+	
+	@SuppressWarnings( "unchecked" )
+	public synchronized Map<String, String> readAttributesMap( Reader reader ) {
+        Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
+        Map<String, List<LinkedTreeMap<String, String>>> attributesWrapper = null;
+        
+        try {
+            attributesWrapper = gson.fromJson( reader, TreeMap.class );
+        } catch ( Exception e ) {
+            log.warn( e.getLocalizedMessage() );
+        }
+        
+        if ( null != attributesWrapper ) {
+            if ( !attributesWrapper.containsKey( PROPERTY_ATTRIBUTES ) ) {
+                log.warn( String.format( MSG_NOT_EXIST_PROP_ERROR, PROPERTY_ATTRIBUTES ) );
+                return new TreeMap<>( new DeveloperAppComparator() );
+            } else {
+                List<LinkedTreeMap<String, String>> attributesList = attributesWrapper.get( PROPERTY_ATTRIBUTES );
+                Map<String, String> attributes = new TreeMap<>( new DeveloperAppComparator() );
+                
+                for ( LinkedTreeMap<String, String> linkedTreeMap : attributesList ) {
+                    Set<String> mapKeys = linkedTreeMap.keySet();
+                    
+                    String key = null;
+                    String value = null;
+                    
+                    for ( String mapKey : mapKeys ) {
+                        if ( mapKey.equals( PROPERTY_NAME ) )
+                            key = linkedTreeMap.get( mapKey );
+                        
+                        if ( mapKey.equals( PROPERTY_VALUE ) )
+                            value = linkedTreeMap.get( mapKey );
+                    }
+                    
+                    if ( null != value && null != key ) {
+                        if ( StringUtils.isEmpty( key ) )
+                            log.warn( MSG_ATTRIB_WARN );
+                        else
+                            attributes.put( key, value );
+                    }
+                    
+                    key = value = null;
+                }
+
+                return attributes;
+            }
+        } else {
+            log.warn( String.format( MSG_NOT_EXIST_PROP_ERROR, PROPERTY_ATTRIBUTES ) );
+            return new TreeMap<>( new DeveloperAppComparator() );
+        }
 	}
 }
