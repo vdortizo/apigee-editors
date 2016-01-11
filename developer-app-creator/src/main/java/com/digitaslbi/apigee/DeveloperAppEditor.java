@@ -2,16 +2,21 @@ package com.digitaslbi.apigee;
 
 import java.awt.EventQueue;
 
+import org.apache.http.impl.client.HttpClientBuilder;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
+import org.springframework.context.annotation.AnnotationConfigApplicationContext;
+import org.springframework.context.annotation.Bean;
 
-import com.digitaslbi.apigee.controller.DeveloperAppControllerImpl;
-import com.digitaslbi.apigee.view.DeveloperAppViewImpl;
+import com.digitaslbi.apigee.view.DeveloperAppView;
+
+import lombok.extern.slf4j.Slf4j;
 
 /**
  * Launcher class for the editor.
  * 
  * @author Victor Ortiz
  */
+@Slf4j
 @SpringBootApplication
 public class DeveloperAppEditor {
     /**
@@ -19,6 +24,20 @@ public class DeveloperAppEditor {
      * @param args the application parameters
      */
     public static void main( String[] args ) {
-        EventQueue.invokeLater( new DeveloperAppViewImpl( new DeveloperAppControllerImpl() ) );
+    	AnnotationConfigApplicationContext context = null;
+    	
+    	try {
+    		context = new AnnotationConfigApplicationContext( DeveloperAppEditor.class );
+    		EventQueue.invokeLater( context.getBean( DeveloperAppView.class ) );
+    	} catch ( Exception e ) {
+    		log.error( e.getLocalizedMessage(), e );
+    	} finally {
+    		if ( null != context )
+    			context.close();
+    	}
+    }
+    
+    @Bean HttpClientBuilder clientBuilder() {
+    	return HttpClientBuilder.create();
     }
 }

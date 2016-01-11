@@ -19,13 +19,6 @@ public interface DeveloperAppView extends Runnable, ActionListener, DocumentList
     public void initialize( boolean firstTime );
     
     /**
-     * Updates a property name in the documents of the view
-     * @param oldName the old name
-     * @param newName the new name
-     */
-    public void updateDocumentProperty( String oldName, String newName );
-    
-    /**
      * Gets the path of a file for loading from user input
      * @param directoyOnly indicates if only directories can be selected
      * @return the selected file
@@ -46,7 +39,7 @@ public interface DeveloperAppView extends Runnable, ActionListener, DocumentList
      * @param isYesNo indicates if the message should have a yes/no option
      * @return
      */
-    public boolean showMessage( String message, boolean isError, boolean isYesNo );
+    public boolean showMessage( Object message, boolean isError, boolean isYesNo );
     
     /**
      * Requests text input from the user

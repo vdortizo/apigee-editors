@@ -4,7 +4,6 @@ import java.io.IOException;
 import java.nio.file.Path;
 
 import com.digitaslbi.apigee.model.DeveloperApp;
-import com.digitaslbi.apigee.view.DeveloperAppView;
 
 /**
  * This controller interface defines specific methods to import/export/work with
@@ -25,15 +24,21 @@ public interface DeveloperAppController {
     public static final String CMD_EDIAT = "EDIAT";
     public static final String CMD_EDIPR = "EDIPR";
     public static final String CMD_TSTUP = "TSTUP";
+    public static final String CMD_VRPRO = "VRPRO";
+    public static final String CMD_SETCR = "SETCR";
+    public static final String CMD_GETAP = "GETAP";
+    public static final String CMD_GETWB = "GETWB";
     
     public static final String KEY = "key";
     public static final String VALUE = "value";
+	public static final String DISPLAY_NAME = "DisplayName";
+	public static final String NOTES = "Notes";
 	
     /**
      * Sets the view of this controller
      * @param view the view to set
-     */
-    public void setView( DeveloperAppView view );
+     *
+    public void setView( DeveloperAppView view );*/
     
     /**
      * Imports a developer app from the file system

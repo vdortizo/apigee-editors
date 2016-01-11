@@ -1,10 +1,8 @@
 package com.digitaslbi.apigee.model;
 
 import java.util.List;
-import java.util.Map;
 
 import lombok.Data;
-import lombok.NonNull;
 
 /**
  * POJO that defines an Apigee product
@@ -13,9 +11,20 @@ import lombok.NonNull;
  */
 @Data
 public class Product {
-    @NonNull private String name;
-    @NonNull private String displayName;
-    @NonNull private List<String> proxies;
-    
-    private Map<String, String> attributes;
+	private String apiproduct;
+	private String name;
+	private String displayName;
+	private String description;
+	private String approvalType;
+	private List<String> apiResources;
+	private List<String> environments;
+	
+	private String createdBy;
+	private String lastModifiedBy;
+	private Long createdAt;
+	private Long lastModifiedAt;
+	
+	private List<String> proxies;
+	private List<String> scopes;
+	private List<Attribute> attributes;
 }
