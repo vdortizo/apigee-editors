@@ -43,8 +43,9 @@ public interface DeveloperAppView extends Runnable, ActionListener, DocumentList
     
     /**
      * Requests text input from the user
+     * @param command the execution command that requested the input
      * @param message the message to show to the user
      * @return the input from the user
      */
-    public String requestNewInput( String message );
+    public String requestNewInput( String command, String message );
 }

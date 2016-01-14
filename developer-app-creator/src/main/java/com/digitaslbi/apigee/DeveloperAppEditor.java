@@ -8,6 +8,8 @@ import org.springframework.context.annotation.AnnotationConfigApplicationContext
 import org.springframework.context.annotation.Bean;
 
 import com.digitaslbi.apigee.view.DeveloperAppView;
+import com.google.gson.Gson;
+import com.google.gson.GsonBuilder;
 
 import lombok.extern.slf4j.Slf4j;
 
@@ -39,5 +41,9 @@ public class DeveloperAppEditor {
     
     @Bean HttpClientBuilder clientBuilder() {
     	return HttpClientBuilder.create();
+    }
+    
+    @Bean Gson gson() {
+        return new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
     }
 }

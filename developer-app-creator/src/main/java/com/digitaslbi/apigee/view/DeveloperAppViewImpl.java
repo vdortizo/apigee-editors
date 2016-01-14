@@ -48,7 +48,6 @@ import com.digitaslbi.apigee.model.DeveloperApp;
 import com.digitaslbi.apigee.model.LoginCredentials;
 import com.digitaslbi.apigee.model.Product;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
 import lombok.Getter;
 import lombok.Setter;
@@ -106,6 +105,7 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
     private static final String USER = "User:";
     private static final String PASSWORD = "Password";
     private static final String ORGANIZATION = "Organization:";
+    private static final String DEVELOPER = "Developer email or id:";
     
     private JFrame frame;
     
@@ -133,9 +133,11 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
     private String lastUser;
     private String lastPassword;
     private String lastOrganization;
+    private String lastDeveloper;
     private Path currentPath;
 
     @Autowired private DeveloperAppController controller;
+    @Autowired private Gson gson;
     
     public DeveloperAppViewImpl() {
         this.lastChange = StringUtils.EMPTY;
@@ -487,26 +489,24 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
         	return false;
     }
     
-    @Override public String requestNewInput( String message ) {
+    @Override public String requestNewInput( String command, String message ) {
     	int response = -1;
+    	InputPanel inputPanel = null;
     	
-    	if ( null != message ) {
-    		InputPanel inputPanel = getMessagePanel( message );
-    		response = JOptionPane.showConfirmDialog( frame, inputPanel, MSG_ADD_TITLE, JOptionPane.OK_CANCEL_OPTION );
-    		
-    		if ( JOptionPane.OK_OPTION == response )
-	            return inputPanel.getInput();
-	        else
-	            return null;
-        } else {
-        	InputPanel inputPanel = getLoginPanel();
-        	response = JOptionPane.showConfirmDialog( frame, inputPanel, MSG_ADD_TITLE, JOptionPane.OK_CANCEL_OPTION );
-        	
-        	if ( JOptionPane.OK_OPTION == response )
-	            return inputPanel.getInput();
-	        else
-	            return null;
+    	switch ( command ) {
+            case DeveloperAppController.CMD_SETCR:
+                inputPanel = getLoginPanel( message ); break;
+            default:
+                inputPanel = getMessagePanel( message );
+                break;
         }
+    	
+    	response = JOptionPane.showConfirmDialog( frame, inputPanel, MSG_ADD_TITLE, JOptionPane.OK_CANCEL_OPTION );
+        
+        if ( JOptionPane.OK_OPTION == response )
+            return inputPanel.getInput();
+        else
+            return null;
     }
     
     @Override public void run() {
@@ -605,26 +605,30 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
         }
     }
     
-    private InputPanel getLoginPanel() {
+    private InputPanel getLoginPanel( String message ) {
+        JLabel messageLabel = new JLabel( message );
     	JLabel userLabel = new JLabel( USER );
     	JLabel passwordLabel = new JLabel( PASSWORD );
     	JLabel organizationLabel = new JLabel( ORGANIZATION );
+    	JLabel developerLabel = new JLabel( DEVELOPER );
 
     	JTextField userContentField = new JTextField( lastUser, 1 );
     	JPasswordField passwordContentField = new JPasswordField( lastPassword, 1 );
     	JTextField organizationContentField = new JTextField( lastOrganization, 1 );
+    	JTextField developerContentField = new JTextField( lastDeveloper, 1 );
     	
     	userContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
     	passwordContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
     	organizationContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
+    	developerContentField.setBorder( new EtchedBorder( EtchedBorder.LOWERED ) );
     	
     	InputPanel loginPanel = new InputPanel( true );
     	GroupLayout loginPanelLayout = new GroupLayout( loginPanel );
     	loginPanel.setLayout( loginPanelLayout );
     	loginPanelLayout.setAutoCreateContainerGaps( true );
     	loginPanelLayout.setAutoCreateGaps( true );
-    	loginPanelLayout.setVerticalGroup( loginPanelLayout.createSequentialGroup().addGroup( loginPanelLayout.createParallelGroup().addComponent( userLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( userContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup().addComponent( passwordLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( passwordContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup().addComponent( organizationLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( organizationContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup() ) );
-    	loginPanelLayout.setHorizontalGroup( loginPanelLayout.createSequentialGroup().addGroup( loginPanelLayout.createParallelGroup().addComponent( userLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( passwordLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( organizationLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup().addComponent( userContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( passwordContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( organizationContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ) ) );
+    	loginPanelLayout.setVerticalGroup( loginPanelLayout.createSequentialGroup().addGroup( loginPanelLayout.createSequentialGroup().addComponent( messageLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createSequentialGroup().addGroup( loginPanelLayout.createParallelGroup().addComponent( userLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( userContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup().addComponent( passwordLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( passwordContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup().addComponent( organizationLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( organizationContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup().addComponent( developerLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( developerContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ) ) );
+    	loginPanelLayout.setHorizontalGroup( loginPanelLayout.createParallelGroup().addGroup( loginPanelLayout.createSequentialGroup().addComponent( messageLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createSequentialGroup().addGroup( loginPanelLayout.createParallelGroup().addComponent( userLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( passwordLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( organizationLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ).addComponent( developerLabel, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) ).addGroup( loginPanelLayout.createParallelGroup().addComponent( userContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( passwordContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( organizationContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( developerContentField, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ) ) ) );
     	
     	Action action = new Action() {
     		@Override public void actionPerformed( ActionEvent e ) {}
@@ -638,18 +642,20 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
     			String user = userContentField.getText();
     			String password = new String( passwordContentField.getPassword() );
     			String organization = organizationContentField.getText();
+    			String developer = developerContentField.getText();
     			
     			if ( !StringUtils.isEmpty( user ) && !StringUtils.isEmpty( password ) && !StringUtils.isEmpty( organization ) ) {
     				LoginCredentials loginCredentials = new LoginCredentials();
     				loginCredentials.setUser( user );
     				loginCredentials.setPassword( password );
     				loginCredentials.setOrganization( organization );
+    				loginCredentials.setDeveloper( developer );
     				
     				lastUser = user;
     				lastPassword = password;
     				lastOrganization = organization;
+    				lastDeveloper = developer;
     				
-    				Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
     				return gson.toJson( loginCredentials, LoginCredentials.class );
     			} else
     				return StringUtils.EMPTY;

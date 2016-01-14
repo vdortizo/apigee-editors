@@ -259,7 +259,7 @@ public class DeveloperAppControllerImplTest {
             when( view.saveFileOrDirectory( eq( true ) ) ).thenReturn( appDirectory.resolve( "output" ) );
             when( view.saveFileOrDirectory( eq( false ) ) ).thenReturn( appDirectory.resolve( "output" ).resolve( "name.props" ) );
             when( view.showMessage( any( String.class ), any( Boolean.class ), any( Boolean.class ) ) ).thenReturn( true );
-            when( view.requestNewInput( any( String.class ) ) ).thenReturn( TEST_STRING );
+            when( view.requestNewInput( any( String.class ), any( String.class ) ) ).thenReturn( TEST_STRING );
             
             return view;
     	}

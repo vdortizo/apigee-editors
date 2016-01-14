@@ -17,6 +17,7 @@ import java.util.Properties;
 
 import org.apache.commons.io.IOUtils;
 import org.apache.commons.lang3.StringUtils;
+import org.apache.http.Consts;
 import org.apache.http.HttpResponse;
 import org.apache.http.NameValuePair;
 import org.apache.http.auth.AuthScope;
@@ -24,28 +25,34 @@ import org.apache.http.auth.Credentials;
 import org.apache.http.auth.UsernamePasswordCredentials;
 import org.apache.http.client.CredentialsProvider;
 import org.apache.http.client.HttpClient;
+import org.apache.http.client.methods.HttpDelete;
 import org.apache.http.client.methods.HttpGet;
+import org.apache.http.client.methods.HttpPost;
 import org.apache.http.client.methods.HttpRequestBase;
 import org.apache.http.client.utils.URIBuilder;
+import org.apache.http.entity.StringEntity;
 import org.apache.http.impl.client.BasicCredentialsProvider;
 import org.apache.http.impl.client.HttpClientBuilder;
+import org.apache.http.message.BasicHeader;
 import org.apache.http.message.BasicNameValuePair;
 import org.apache.http.util.EntityUtils;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.stereotype.Component;
 
 import com.digitaslbi.apigee.model.Attribute;
+import com.digitaslbi.apigee.model.AttributesList;
 import com.digitaslbi.apigee.model.Credential;
 import com.digitaslbi.apigee.model.DeveloperApp;
+import com.digitaslbi.apigee.model.DeveloperAppCreateRequest;
+import com.digitaslbi.apigee.model.DeveloperAppUpdateRequest;
 import com.digitaslbi.apigee.model.LoginCredentials;
 import com.digitaslbi.apigee.model.Product;
+import com.digitaslbi.apigee.model.ProductsList;
 import com.digitaslbi.apigee.tools.AttributeComparator;
 import com.digitaslbi.apigee.tools.ProductComparator;
 import com.digitaslbi.apigee.view.DeveloperAppView;
 import com.google.gson.Gson;
-import com.google.gson.GsonBuilder;
 
-import lombok.Data;
 import lombok.Getter;
 import lombok.extern.slf4j.Slf4j;
 
@@ -68,7 +75,13 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String HTTP_ENDPOINT = "/v1/organizations";
 	private static final String HTTP_PRODUCTS_RESOURCE = "/%s/apiproducts";
 	private static final String HTTP_APPS_RESOURCE = "/%s/developers/%s/apps/%s";
+	private static final String HTTP_APPCR_RESOURCE = "/%s/developers/%s/apps";
+	private static final String HTTP_KEYS_RESOURCE = "/keys/%s";
+	private static final String HTTP_ATTS_RESOURCE = "/attributes";
+	private static final String HTTP_PRODS_RESOURCE = "/apiproducts/%s";
 	private static final String HTTP_PROTOCOL = "https";
+	private static final String HTTP_CONTENT_TYPE = "Content-Type";
+	private static final String HTTP_CONTENT_VALUE = "application/json";
 
 	private static final String ATTRIBUTE_PLACEHOLDER = "Please change this value";
 	private static final String PRODUCT_SEPARATOR = ",";
@@ -83,12 +96,13 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private static final String MSG_APP_DATA_ERROR = "The developer app [%s] does not contain the required structure";
 	private static final String MSG_APP_EXISTS_ERROR = "The developer app [%s] does not exist in the organization [%s], for the developer [%s]";
 	private static final String MSG_APP_KEY = "The key for the developer app [%s] is: [%s]. It has been copied to the clipboard";
+	private static final String MSG_APP_UPDATED = "Developer app updated, please verify APIGEE Edge";
+	private static final String MSG_APP_CREATED = "Developer app created, please verify APIGEE Edge";
 	private static final String MSG_CRED_ERROR = "All credential fields are required";
 	private static final String MSG_DATA_ERROR = "An error has ocurred";
-	private static final String MSG_DEVELOPER_ERROR = "The developer name or id cannot be empty";
 	private static final String MSG_EXISTS_WARN = "The file [%s] already exists in the directory [%s] and will be overwritten";
 	private static final String MSG_FILE_NOT_EXISTS_ERROR = "The file [%s] does not exist under the directory [%s]";
-	private static final String MSG_GET_DEVELOPER = "Please input the developer email or id:";
+	private static final String MSG_INP_CREDENTIALS = "Please input your credentials:";
 	private static final String MSG_LOAD_APP = "Please input the developer app name:";
 	private static final String MSG_LOSE_CHANGES = "Reloading the current app will lose all unsaved changes, are you sure you want to continue?";
 	private static final String MSG_NO_APP_LOADED = "The current developer app was not loaded from the filesystem";
@@ -122,6 +136,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	@Getter private DeveloperApp model;
 
 	@Autowired private DeveloperAppView view;
+	@Autowired private Gson gson;
 	@Autowired private HttpClientBuilder clientBuilder;
 
 	@Override public void commandExecuted( String command, Object source ) {
@@ -249,8 +264,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 
 				if ( Files.exists( attributesJson, LinkOption.NOFOLLOW_LINKS ) ) {
 					FileReader reader = new FileReader( attributesJson.toFile() );
-					Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-					AttributeList attributeList = gson.fromJson( reader, AttributeList.class );
+					AttributesList attributeList = gson.fromJson( reader, AttributesList.class );
 					tempModel.setAttributes( attributeList.getAttributes() );
 					reader.close();
 				} else {
@@ -374,10 +388,9 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 					log.warn( String.format( MSG_EXISTS_WARN, ATTRIBUTES, directory ) );
 
 				FileWriter writer = new FileWriter( attributesJson.toFile() );
-				Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-				AttributeList attributeList = new AttributeList();
+				AttributesList attributeList = new AttributesList();
 				attributeList.setAttributes( attributes );
-				gson.toJson( attributeList, AttributeList.class, writer );
+				gson.toJson( attributeList, AttributesList.class, writer );
 				writer.close();
 			}
 
@@ -401,7 +414,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 		save();
 
 		DeveloperApp oldModel = model;
-		String name = view.requestNewInput( MSG_ADD_APP );
+		String name = view.requestNewInput( CMD_NEW, MSG_ADD_APP );
 		name = StringUtils.trim( name );
 
 		if ( null == name )
@@ -466,89 +479,93 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private void openWeb() {
 		save();
 
-		String developer = view.requestNewInput( MSG_GET_DEVELOPER );
-		developer = StringUtils.trim( developer );
+		try {
+		    String user = null;
+		    String password = null;
+		    String organization = null;
+		    String payload = null;
+		    String developer = null;
 
-		if ( null == developer )
-			return;
+		    if ( null == loginCredentials )
+		        if ( setCredentials() ) {
+		            user = loginCredentials.getUser();
+		            password = loginCredentials.getPassword();
+		            organization = loginCredentials.getOrganization();
+		            developer = loginCredentials.getDeveloper();
+		        } else
+		            return;
+		    else {
+		        user = loginCredentials.getUser();
+		        password = loginCredentials.getPassword();
+		        organization = loginCredentials.getOrganization();
+		        developer = loginCredentials.getDeveloper();
+		    }
 
-		if ( !StringUtils.isEmpty( developer ) ) {
-			try {
-				String user = null;
-				String password = null;
-				String organization = null;
-				String payload = null;
+		    String name = view.requestNewInput( CMD_GETWB, MSG_LOAD_APP );
+		    name = StringUtils.trim( name );
 
-				if ( null == loginCredentials )
-					if ( setCredentials() ) {
-						user = loginCredentials.getUser();
-						password = loginCredentials.getPassword();
-						organization = loginCredentials.getOrganization();
-					} else
-						return;
-				else {
-					user = loginCredentials.getUser();
-					password = loginCredentials.getPassword();
-					organization = loginCredentials.getOrganization();
-				}
+		    if ( null == name )
+		        return;
 
-				String name = view.requestNewInput( MSG_LOAD_APP );
-				name = StringUtils.trim( name );
+		    if ( !StringUtils.isEmpty( name ) ) {
+		        List<NameValuePair> parameters = new ArrayList<>();
+		        parameters.add( new BasicNameValuePair( PROPERTY_EXPAND, Boolean.TRUE.toString() ) );
+		        payload = executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, name ), parameters, new HttpGet() );
 
-				if ( null == name )
-					return;
+		        if ( !StringUtils.isEmpty( payload ) ) {
+		            DeveloperApp tempModel = gson.fromJson( payload, DeveloperApp.class );
+		            Credential credential = null;
 
-				if ( !StringUtils.isEmpty( name ) ) {
-					List<NameValuePair> parameters = new ArrayList<>();
-					parameters.add( new BasicNameValuePair( PROPERTY_EXPAND, Boolean.TRUE.toString() ) );
-					payload = executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, name ), parameters, new HttpGet() );
+		            if ( null != ( credential = getCredential( tempModel ) )  && fillCorrectProducts( credential.getApiProducts() ) ) {
+		                boolean displayName = false;
+		                boolean notes = false;
 
-					if ( !StringUtils.isEmpty( payload ) ) {
-						Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-						DeveloperApp tempModel = gson.fromJson( payload, DeveloperApp.class );
-						Credential credential = null;
-						
-						if ( null != ( credential = getCredential( tempModel ) )  && fillCorrectProducts( credential.getApiProducts() ) ) {
-							boolean notes = false;
+		                for ( Attribute attribute : tempModel.getAttributes() ) {
+		                    if ( DISPLAY_NAME.equals( attribute.getName() ) )
+		                        displayName = true;
+		                    else if ( NOTES.equals( attribute.getName() ) )
+		                        notes = true;
+		                }
 
-							for ( Attribute attribute : tempModel.getAttributes() ) {
-								if ( NOTES.equals( attribute.getName() ) )
-									notes = true;
-							}
+		                if ( !displayName ) {
+		                    Attribute attribute = new Attribute();
+		                    attribute.setName( DISPLAY_NAME );
+		                    attribute.setValue( tempModel.getName() );
 
-							if ( !notes ) {
-								Attribute attribute = new Attribute();
-								attribute.setName( NOTES );
-								attribute.setValue( StringUtils.EMPTY );
+		                    log.warn( String.format( MSG_NO_PROPERTY, DISPLAY_NAME ), false, false );
+		                    tempModel.getAttributes().add( attribute );
+		                    modified = true;
+		                }
 
-								log.warn( String.format( MSG_NO_PROPERTY, NOTES ), false, false );
-								tempModel.getAttributes().add( attribute );
-								modified = true;
-							}
-							
-							Collections.sort( credential.getApiProducts(), new ProductComparator() );
-							Collections.sort( tempModel.getAttributes(), new AttributeComparator() );
-							model = tempModel;
-						} else {
-							view.showMessage( String.format( MSG_APP_DATA_ERROR, name ), true, false );
-							view.initialize( false );
-						}
-					} else {
-						view.showMessage( String.format( MSG_APP_EXISTS_ERROR, name, organization, developer ), true, false );
-						view.initialize( false );
-					}
-				} else {
-					view.showMessage( MSG_APP_ERROR, true, false );
-					view.initialize( false );
-				}
-			} catch ( Exception e ) {
-				log.error( e.getLocalizedMessage(), e );
-				view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
-				view.initialize( false );
-			}
-		} else {
-			view.showMessage( MSG_DEVELOPER_ERROR, true, false );
-			view.initialize( false );
+		                if ( !notes ) {
+		                    Attribute attribute = new Attribute();
+		                    attribute.setName( NOTES );
+		                    attribute.setValue( StringUtils.EMPTY );
+
+		                    log.warn( String.format( MSG_NO_PROPERTY, NOTES ), false, false );
+		                    tempModel.getAttributes().add( attribute );
+		                    modified = true;
+		                }
+
+		                Collections.sort( credential.getApiProducts(), new ProductComparator() );
+		                Collections.sort( tempModel.getAttributes(), new AttributeComparator() );
+		                model = tempModel;
+		            } else {
+		                view.showMessage( String.format( MSG_APP_DATA_ERROR, name ), true, false );
+		                view.initialize( false );
+		            }
+		        } else {
+		            view.showMessage( String.format( MSG_APP_EXISTS_ERROR, name, organization, developer ), true, false );
+		            view.initialize( false );
+		        }
+		    } else {
+		        view.showMessage( MSG_APP_ERROR, true, false );
+		        view.initialize( false );
+		    }
+		} catch ( Exception e ) {
+		    log.error( e.getLocalizedMessage(), e );
+		    view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+		    view.initialize( false );
 		}
 	}
 
@@ -628,7 +645,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 
 	private void addAttribute() {
 		if ( null != model ) {
-			String attributeName = view.requestNewInput( MSG_ADD_ATTRIBUTE );
+			String attributeName = view.requestNewInput( CMD_ADDAT, MSG_ADD_ATTRIBUTE );
 			attributeName = StringUtils.trim( attributeName );
 
 			if ( null == attributeName )
@@ -663,7 +680,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 
 	private void addProduct() {
 		if ( null != model ) {
-			String productName = view.requestNewInput( MSG_ADD_PRODUCT );
+			String productName = view.requestNewInput( CMD_ADDPR, MSG_ADD_PRODUCT );
 			productName = StringUtils.trim( productName );
 
 			if ( null == productName )
@@ -812,14 +829,13 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	private boolean setCredentials() {
 		String oldOrganization = null != loginCredentials ? loginCredentials.getOrganization() : StringUtils.EMPTY;
 		
-		String tempCredentials = view.requestNewInput( null );
+		String tempCredentials = view.requestNewInput( CMD_SETCR, MSG_INP_CREDENTIALS );
 		tempCredentials = StringUtils.trim( tempCredentials );
 
 		if ( null == tempCredentials )
 			return false;
 
 		if ( !StringUtils.isEmpty( tempCredentials ) ) {
-			Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
 			loginCredentials = gson.fromJson( tempCredentials, LoginCredentials.class );
 			
 			if ( !oldOrganization.equals( loginCredentials.getOrganization() ) ) {
@@ -836,167 +852,168 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 	}
 
 	private void getApiKey() {
-		String developer = view.requestNewInput( MSG_GET_DEVELOPER );
-		developer = StringUtils.trim( developer );
+		try {
+		    String user = null;
+		    String password = null;
+		    String organization = null;
+		    String developer = null;
+		    String payload = null;
 
-		if ( null == developer )
-			return;
+		    if ( null == loginCredentials )
+		        if ( setCredentials() ) {
+		            user = loginCredentials.getUser();
+		            password = loginCredentials.getPassword();
+		            organization = loginCredentials.getOrganization();
+		            developer = loginCredentials.getDeveloper();
+		        } else
+		            return;
+		    else {
+		        user = loginCredentials.getUser();
+		        password = loginCredentials.getPassword();
+		        organization = loginCredentials.getOrganization();
+		        developer = loginCredentials.getDeveloper();
+		    }
 
-		if ( !StringUtils.isEmpty( developer ) ) {
-			try {
-				String user = null;
-				String password = null;
-				String organization = null;
-				String payload = null;
+		    String name = view.requestNewInput( CMD_GETAP, MSG_LOAD_APP );
+		    name = StringUtils.trim( name );
 
-				if ( null == loginCredentials )
-					if ( setCredentials() ) {
-						user = loginCredentials.getUser();
-						password = loginCredentials.getPassword();
-						organization = loginCredentials.getOrganization();
-					} else
-						return;
-				else {
-					user = loginCredentials.getUser();
-					password = loginCredentials.getPassword();
-					organization = loginCredentials.getOrganization();
-				}
+		    if ( null == name )
+		        return;
 
-				String name = view.requestNewInput( MSG_LOAD_APP );
-				name = StringUtils.trim( name );
+		    if ( !StringUtils.isEmpty( name ) ) {
+		        List<NameValuePair> parameters = new ArrayList<>();
+		        parameters.add( new BasicNameValuePair( PROPERTY_EXPAND, Boolean.TRUE.toString() ) );
+		        payload = executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, name ), parameters, new HttpGet() );
 
-				if ( null == name )
-					return;
+		        if ( !StringUtils.isEmpty( payload ) ) {
+		            DeveloperApp developerApp = gson.fromJson( payload, DeveloperApp.class );
+		            Credential credential = null;
+		            String consumerKey = null;
 
-				if ( !StringUtils.isEmpty( name ) ) {
-					List<NameValuePair> parameters = new ArrayList<>();
-					parameters.add( new BasicNameValuePair( PROPERTY_EXPAND, Boolean.TRUE.toString() ) );
-					payload = executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, name ), parameters, new HttpGet() );
+		            if ( null != ( credential = getCredential( developerApp ) ) ) {
+		                consumerKey = credential.getConsumerKey();
 
-					if ( !StringUtils.isEmpty( payload ) ) {
-						Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-						DeveloperApp developerApp = gson.fromJson( payload, DeveloperApp.class );
-						Credential credential = null;
-						String consumerKey = null;
-
-						if ( null != ( credential = getCredential( developerApp ) ) ) {
-							consumerKey = credential.getConsumerKey();
-
-							StringSelection contents = new StringSelection( consumerKey );
-							Toolkit.getDefaultToolkit().getSystemClipboard().setContents( contents, contents );
-							view.showMessage( String.format( MSG_APP_KEY, name, consumerKey ), false, false );
-							view.initialize( false );
-						} else {
-							view.showMessage( String.format( MSG_APP_DATA_ERROR, name ), true, false );
-							view.initialize( false );
-						}
-					} else {
-						view.showMessage( String.format( MSG_APP_EXISTS_ERROR, name, organization, developer ), true, false );
-						view.initialize( false );
-					}
-				} else {
-					view.showMessage( MSG_APP_ERROR, true, false );
-					view.initialize( false );
-				}
-			} catch ( Exception e ) {
-				log.error( e.getLocalizedMessage(), e );
-				view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
-				view.initialize( false );
-			}
-		} else {
-			view.showMessage( MSG_DEVELOPER_ERROR, true, false );
-			view.initialize( false );
+		                StringSelection contents = new StringSelection( consumerKey );
+		                Toolkit.getDefaultToolkit().getSystemClipboard().setContents( contents, contents );
+		                view.showMessage( String.format( MSG_APP_KEY, name, consumerKey ), false, false );
+		                view.initialize( false );
+		            } else {
+		                view.showMessage( String.format( MSG_APP_DATA_ERROR, name ), true, false );
+		                view.initialize( false );
+		            }
+		        } else {
+		            view.showMessage( String.format( MSG_APP_EXISTS_ERROR, name, organization, developer ), true, false );
+		            view.initialize( false );
+		        }
+		    } else {
+		        view.showMessage( MSG_APP_ERROR, true, false );
+		        view.initialize( false );
+		    }
+		} catch ( Exception e ) {
+		    log.error( e.getLocalizedMessage(), e );
+		    view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+		    view.initialize( false );
 		}
 	}
 
 	private void testUpload() {
 		if ( testProducts() ) {
-			String developer = view.requestNewInput( MSG_GET_DEVELOPER );
-			developer = StringUtils.trim( developer );
+		    try {
+		        String user = null;
+		        String password = null;
+		        String organization = null;
+		        String developer = null;
+		        String payload = null;
 
-			if ( null == developer )
-				return;
+		        if ( null == loginCredentials )
+		            if ( setCredentials() ) {
+		                user = loginCredentials.getUser();
+		                password = loginCredentials.getPassword();
+		                organization = loginCredentials.getOrganization();
+		                developer = loginCredentials.getDeveloper();
+		            } else
+		                return;
+		        else {
+		            user = loginCredentials.getUser();
+		            password = loginCredentials.getPassword();
+		            organization = loginCredentials.getOrganization();
+		            developer = loginCredentials.getDeveloper();
+		        }
 
-			if ( !StringUtils.isEmpty( developer ) ) {
-				try {
-					String user = null;
-					String password = null;
-					String organization = null;
-					String payload = null;
+		        List<NameValuePair> parameters = new ArrayList<>();
+		        parameters.add( new BasicNameValuePair( PROPERTY_EXPAND, Boolean.TRUE.toString() ) );
+		        payload = executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, model.getName() ), parameters, new HttpGet() );
 
-					if ( null == loginCredentials )
-						if ( setCredentials() ) {
-							user = loginCredentials.getUser();
-							password = loginCredentials.getPassword();
-							organization = loginCredentials.getOrganization();
-						} else
-							return;
-					else {
-						user = loginCredentials.getUser();
-						password = loginCredentials.getPassword();
-						organization = loginCredentials.getOrganization();
-					}
+		        if ( !StringUtils.isEmpty( payload ) ) {
+		            DeveloperApp webModel = gson.fromJson( payload, DeveloperApp.class );
+		            
+		            Credential credential = null;
+                    String consumerKey = null;
 
-					List<NameValuePair> parameters = new ArrayList<>();
-					parameters.add( new BasicNameValuePair( PROPERTY_EXPAND, Boolean.TRUE.toString() ) );
-					payload = executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, model.getName() ), parameters, new HttpGet() );
+                    if ( null != ( credential = getCredential( webModel ) ) ) {
+                        consumerKey = credential.getConsumerKey();
+                        
+                        DeveloperAppUpdateRequest updateRequest = new DeveloperAppUpdateRequest();
+                        updateRequest.setAttribute( model.getAttributes() );
+                        updateRequest.setApiProducts( getProductNameList( model.getCredentials().get( 0 ).getApiProducts() ) );
+                        
+                        List<String> productsToRemove = new ArrayList<>(); 
+                        
+                        for ( Product product : credential.getApiProducts() ) {
+                            boolean exists = false;
+                            
+                            for ( String productName : updateRequest.getApiProducts() ) {
+                                if ( productName.equals( product.getApiproduct() ) ) {
+                                    exists = true;
+                                    break;
+                                }
+                            }
+                            
+                            if ( !exists )
+                                productsToRemove.add( product.getApiproduct() );
+                        }
+                        
+                        HttpPost request = new HttpPost();
+                        request.addHeader( new BasicHeader( HTTP_CONTENT_TYPE, HTTP_CONTENT_VALUE ) );
+                        request.setEntity( new StringEntity( gson.toJson( updateRequest, DeveloperAppUpdateRequest.class ), Consts.UTF_8 ) );
 
-					if ( !StringUtils.isEmpty( payload ) ) {
-						//TODO: PUT		https://api.enterprise.apigee.com/v1/organizations/{org_name}/developers/{developer_email_or_id}/apps/{app_name}
+                        executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, model.getName() ) + HTTP_ATTS_RESOURCE, null, request );
+                       
+                        for ( String product : productsToRemove )
+                            executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, model.getName() ) + String.format( HTTP_KEYS_RESOURCE, consumerKey ) + String.format( HTTP_PRODS_RESOURCE, product ), null, new HttpDelete() );
+                        
+                        executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPS_RESOURCE, organization, developer, model.getName() ) + String.format( HTTP_KEYS_RESOURCE, consumerKey ), null, request );
+                        view.showMessage( MSG_APP_UPDATED, false, false );
+                    } else {
+                        view.showMessage( String.format( MSG_APP_DATA_ERROR, webModel.getName() ), true, false );
+                        view.initialize( false );
+                    }
+                } else {
+                    Credential credential = null;
 
-						/*
-						 	{
-							 "attributes" : [ 
-							  {
-							   "name" : "{attribute_name1}",
-							   "value" : "{value1}"
-							  }, 
-							  {
-							   "name" : "{attribute_name2}",
-							   "value" : "{value2}"
-							  } 
-							 ],
-							 "name" : "{App_name}",
-							 "callbackUrl" : "{url}",
-							 "keyExpiresIn" : "{milliseconds}"
-							}  
-						 */
-					} else {
-						//TODO: POST	https://api.enterprise.apigee.com/v1/organizations/{org_name}/developers/{developer_email_or_id}/apps
+                    if ( null != ( credential = getCredential( model ) ) ) {
+                        DeveloperAppCreateRequest createRequest = new DeveloperAppCreateRequest();
+                        createRequest.setName( model.getName() );
+                        createRequest.setKeyExpiresIn( -1L );
+                        createRequest.setAttributes( model.getAttributes() );
+                        createRequest.setApiProducts( getProductNameList( credential.getApiProducts() ) );
+                        
+                        HttpPost request = new HttpPost();
+                        request.addHeader( new BasicHeader( HTTP_CONTENT_TYPE, HTTP_CONTENT_VALUE ) );
+                        request.setEntity( new StringEntity( gson.toJson( createRequest, DeveloperAppCreateRequest.class ), Consts.UTF_8 ) );
 
-						/*
-							{
-							 "name" : "{app_name}",
-							 "apiProducts": [ "{apiproduct1}", "{apiproduct2}", ...],
-							 "keyExpiresIn" : "{milliseconds}",
-							 "scopes": [ "ScopeName1","ScopeName2","ScopeName3", ...],   
-							 "attributes" : [ 
-							  {
-							   "name" : "DisplayName",
-							   "value" : "{display_name_value}"
-							  }, 
-							  {
-							   "name" : "Notes",
-							   "value" : "{notes_for_developer_app}"
-							  },
-							  {
-							   "name" : "{custom_attribute_name}",
-							   "value" : "{custom_attribute_value}"
-							  } 
-							 ],
-							 "callbackUrl" : "{url}"
-							}
-						 */
-					}
-				} catch ( Exception e ) {
-					log.error( e.getLocalizedMessage(), e );
-					view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
-					view.initialize( false );
-				}
-			} else {
-				view.showMessage( MSG_DEVELOPER_ERROR, true, false );
-				view.initialize( false );
-			}
+                        executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_APPCR_RESOURCE, organization, developer ), null, request );
+                        view.showMessage( MSG_APP_CREATED, false, false );
+                    } else {
+                        view.showMessage( String.format( MSG_APP_DATA_ERROR, model.getName() ), true, false );
+                        view.initialize( false );
+                    }
+		        }
+		    } catch ( Exception e ) {
+		        log.error( e.getLocalizedMessage(), e );
+		        view.showMessage( MSG_DATA_ERROR + IOUtils.LINE_SEPARATOR + e.getLocalizedMessage(), true, false );
+		        view.initialize( false );
+		    }
 		}
 	}
 
@@ -1034,6 +1051,7 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 
 					for ( Product product : apigeeProducts )
 						if ( modelProduct.getDisplayName().equals( product.getDisplayName() ) ) {
+						    modelProduct.setName( product.getName() );
 							exists = true;
 							break;
 						}
@@ -1069,14 +1087,17 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 		builder.setScheme( protocol );
 		builder.setHost( host );
 		builder.setPath( endpoint + resource );
-		builder.setParameters( parameters );
+		
+		if ( null != parameters )
+		    builder.setParameters( parameters );
 
 		try {
+		    log.info( request.getMethod() + ": " + builder.build().toString() );
 			request.setURI( builder.build() );
 			HttpClient client = clientBuilder.setDefaultCredentialsProvider( provider ).build();
 			HttpResponse response = client.execute( request );
 
-			if ( 200 == response.getStatusLine().getStatusCode() )
+			if ( 2 == ( response.getStatusLine().getStatusCode() / 100 ) )
 				return EntityUtils.toString( response.getEntity() );
 			else if ( 404 == response.getStatusLine().getStatusCode() )
 				return StringUtils.EMPTY;
@@ -1149,10 +1170,9 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 
 			String payload = executeHttpMethod( user, password, HTTP_PROTOCOL, HTTP_HOST, HTTP_ENDPOINT, String.format( HTTP_PRODUCTS_RESOURCE, organization ), parameters, new HttpGet() );
 
-			if ( !StringUtils.isEmpty( payload ) ) {
-				Gson gson = new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
-				apigeeProducts = gson.fromJson( payload, ProductList.class ).getApiProduct();
-			} else
+			if ( !StringUtils.isEmpty( payload ) )
+			    apigeeProducts = gson.fromJson( payload, ProductsList.class ).getApiProduct();
+			else
 				apigeeProducts = new ArrayList<>();
 
 			productsBorn = System.currentTimeMillis();
@@ -1168,13 +1188,12 @@ public class DeveloperAppControllerImpl implements DeveloperAppController {
 		return displayNameList;
 	}
 	
-	@Data
-	private class ProductList {
-		private List<Product> apiProduct;
-	}
-
-	@Data
-	private class AttributeList {
-		private List<Attribute> attributes;
-	}
+	private List<String> getProductNameList( List<Product> products ) {
+        List<String> nameList = new ArrayList<>();
+        
+        for ( Product product : products )
+            nameList.add( product.getName() );
+        
+        return nameList;
+    }
 }
