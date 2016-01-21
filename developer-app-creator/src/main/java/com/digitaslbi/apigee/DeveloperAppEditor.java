@@ -39,11 +39,11 @@ public class DeveloperAppEditor {
     	}
     }
     
-    @Bean HttpClientBuilder clientBuilder() {
+    @Bean public HttpClientBuilder clientBuilder() {
     	return HttpClientBuilder.create();
     }
     
-    @Bean Gson gson() {
+    @Bean public Gson gson() {
         return new GsonBuilder().disableHtmlEscaping().setPrettyPrinting().create();
     }
 }
