@@ -15,6 +15,7 @@ import java.util.List;
 
 import javax.swing.Action;
 import javax.swing.GroupLayout;
+import javax.swing.GroupLayout.Alignment;
 import javax.swing.GroupLayout.Group;
 import javax.swing.InputVerifier;
 import javax.swing.JButton;
@@ -79,7 +80,6 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
     private static final String MNIT_SETCR = "Set credentials";
     private static final String MNIT_GETWB = "Load from web";
     private static final String MENU_FILE = "File";
-    private static final String MENU_EDIT = "Edit";
     private static final String MENU_WEB = "Web";
     private static final String NAME = "Name:";
     private static final String NIMBUS = "Nimbus";
@@ -119,6 +119,9 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
     
     private JScrollPane notesContentScrollPane;
     private JScrollPane panelScrollPane;
+    
+    private JButton productNewButton;
+    private JButton attributeNewButton;
     
     private JPanel namePanel;
     private JPanel productsPanel;
@@ -197,6 +200,14 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
             notesContentArea.getDocument().putProperty( PROPERTY_KV, DeveloperAppController.VALUE );
             notesContentScrollPane = new JScrollPane( notesContentArea );
             notesContentScrollPane.setBorder( null );
+            attributeNewButton = new JButton();
+            attributeNewButton.setText( MNIT_ADDAT );
+            attributeNewButton.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_ADDAT, null ) );
+            attributeNewButton.addActionListener( this );
+            productNewButton = new JButton();
+            productNewButton.setText( MNIT_ADDPR );
+            productNewButton.setActionCommand( controller.getCommandForIndex( DeveloperAppController.CMD_ADDPR, null ) );
+            productNewButton.addActionListener( this );
             namePanel = new JPanel( true );
             namePanel.setBorder( new TitledBorder( APP_DETAILS ) );
 
@@ -279,12 +290,7 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
             fileMenu.add( save );
             fileMenu.add( saveAs );
             fileMenu.add( reload );
-            
-            JMenu editMenu = new JMenu( MENU_EDIT );
-            editMenu.setMnemonic( KeyEvent.VK_E );
-            editMenu.add( addAttrib );
-            editMenu.add( addProduct );
-            
+                        
             JMenu webMenu = new JMenu( MENU_WEB );
             webMenu.setMnemonic( KeyEvent.VK_W );
             webMenu.add( setCredentials );
@@ -295,7 +301,6 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
             
             JMenuBar menubar = new JMenuBar();
             menubar.add( fileMenu );
-            menubar.add( editMenu );
             menubar.add( webMenu );
             
             Dimension screen = Toolkit.getDefaultToolkit().getScreenSize();
@@ -358,10 +363,12 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
         Group productsPanelLayoutVerticalGroup = productsPanelLayout.createSequentialGroup();
         Group productsPanelLayoutHorizontalGroup = productsPanelLayout.createSequentialGroup();
         Group productsPanelLayoutHorizontalProductGroup = productsPanelLayout.createParallelGroup();
-        Group productsPanelLayoutHorizontalDeleteGroup = productsPanelLayout.createParallelGroup();
+        Group productsPanelLayoutHorizontalDeleteGroup = productsPanelLayout.createParallelGroup( Alignment.TRAILING );
         
         if ( null != model ) {
             List<Product> products = new ArrayList<>();
+            productsPanelLayoutVerticalGroup.addGroup( productsPanelLayout.createParallelGroup().addComponent( productNewButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) );
+            productsPanelLayoutHorizontalDeleteGroup.addComponent( productNewButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE );
             
             if ( null != model.getCredentials() && 1 == model.getCredentials().size() )
             	products = model.getCredentials().get( 0 ).getApiProducts();
@@ -388,7 +395,6 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
         }
         
         productsPanelLayout.setVerticalGroup( productsPanelLayoutVerticalGroup );
-        productsPanelLayout.setHorizontalGroup( productsPanelLayoutHorizontalGroup );
         productsPanelLayout.setHorizontalGroup( productsPanelLayoutHorizontalGroup.addGroup( productsPanelLayoutHorizontalProductGroup ).addGroup( productsPanelLayoutHorizontalDeleteGroup ) );
         
         attributesPanel.removeAll();
@@ -403,10 +409,17 @@ public class DeveloperAppViewImpl extends InputVerifier implements DeveloperAppV
         Group attributesPanelLayoutHorizontalGroup = attributesPanelLayout.createSequentialGroup();
         Group attributesPanelLayoutHorizontalNameGroup = attributesPanelLayout.createParallelGroup();
         Group attributesPanelLayoutHorizontalContentGroup = attributesPanelLayout.createParallelGroup();
-        Group attributesPanelLayoutHorizontalDeleteGroup = attributesPanelLayout.createParallelGroup();
+        Group attributesPanelLayoutHorizontalDeleteGroup = attributesPanelLayout.createParallelGroup( Alignment.TRAILING );
         
         if ( null != model && null != model.getAttributes() ) {
             List<Attribute> attributes = model.getAttributes();
+            JLabel emptyAttributeName = new JLabel();
+            JLabel emptyAttributeContent = new JLabel();
+            
+            attributesPanelLayoutVerticalGroup.addGroup( attributesPanelLayout.createParallelGroup().addComponent( emptyAttributeName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( emptyAttributeContent, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE ).addComponent( attributeNewButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE ) );
+            attributesPanelLayoutHorizontalNameGroup.addComponent( emptyAttributeName, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE );
+            attributesPanelLayoutHorizontalContentGroup.addComponent( emptyAttributeContent, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, Short.MAX_VALUE );
+            attributesPanelLayoutHorizontalDeleteGroup.addComponent( attributeNewButton, GroupLayout.PREFERRED_SIZE, GroupLayout.DEFAULT_SIZE, GroupLayout.PREFERRED_SIZE );
             
             for ( Attribute attribute : attributes ) {
                 if ( !DeveloperAppController.DISPLAY_NAME.equals( attribute.getName() ) && !DeveloperAppController.NOTES.equals( attribute.getName() ) ) {
