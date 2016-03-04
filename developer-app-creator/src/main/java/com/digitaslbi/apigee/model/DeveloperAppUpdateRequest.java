@@ -5,7 +5,7 @@ import java.util.List;
 import lombok.Data;
 
 /**
- * POJO that defines an Apigee developer app creation request
+ * POJO that defines an Apigee developer app update request
  * 
  * @author Victor Ortiz
  */

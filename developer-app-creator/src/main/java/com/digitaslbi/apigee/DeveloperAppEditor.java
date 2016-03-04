@@ -8,6 +8,7 @@ import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.context.ApplicationContext;
 import org.springframework.context.annotation.Bean;
 
+import com.digitaslbi.apigee.model.ConfigProperties;
 import com.digitaslbi.apigee.view.DeveloperAppView;
 import com.google.gson.Gson;
 import com.google.gson.GsonBuilder;
@@ -38,6 +39,10 @@ public class DeveloperAppEditor {
     	} catch ( Exception e ) {
     		log.error( e.getLocalizedMessage(), e );
     	}
+    }
+    
+    @Bean public ConfigProperties configProperties() {
+        return new ConfigProperties();
     }
     
     @Bean public HttpClientBuilder clientBuilder() {
